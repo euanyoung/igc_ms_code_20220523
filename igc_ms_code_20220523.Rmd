@@ -5,20 +5,722 @@ date: '2022-05-23'
 output: html_document
 ---
 
-# Introduction
+In this Rmarkdown document contains all the code necessary to repeat the analyses from "Lifetime reproductive success is an imprecise but largely unbiased predictor of long-term genetic contribution in humans" (Young et al. in press). 
 
-In this Rmarkdown document contains all the code neccesssary to repeat the analyses from "Lifetime reproductive success is an imprecise but largely unbiased predictor of long-term genetic contribution in humans" (Young et al. in press). 
+This is broken down here into four sections:
+1. Import of raw data and estimation of arrival and departure years
+2. Estimation of IGC and subset of data for analysis
+3. Zero-inflated models and output
 
-```{r cars}
-summary(cars)
+# 1. Import of raw data and estimation of arrival and departure years
+
+### Packages for this section
+
+```{r}
+
+library(tidyverse)
+
 ```
 
-## Including Plots
+## Data import and descriptive statistics
 
-You can also embed plots, for example:
+```{r}
+data <- read.delim("data_GL20210824.txt", sep ="\t") #import raw dataset
 
-```{r pressure, echo=FALSE}
-plot(pressure)
+# number of unique individuals, (total sample size)
+data %>% distinct(IDp) %>% count()
 ```
 
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+#### Missing birth and marriage locations
+
+```{r}
+
+data %>% 
+  distinct(IDp,.keep_all = T) %>% 
+  count(!is.na(cregcode))
+
+data %>%
+  distinct(IDp, .keep_all = T) %>% 
+  count(!is.na(sregcode))
+
+```
+
+#### Missing birth and death years
+
+```{r}
+
+data %>% count(!is.na(byear))
+data %>% count(!is.na(dyear))
+
+```
+
+#### Dispersal between each parishes
+
+```{r}
+data %>% filter(cregcode=="GL03") %>% count(sregcode)
+data %>% filter(cregcode=="GL09") %>% count(sregcode)
+```
+
+#### Age of Adulthood estimation
+
+Defined as the fifth percentile age at first reproduction. Here broken down by sex
+
+```{r}
+
+data %>% 
+  group_by(sex) %>% 
+  summarise(afr_5thp=as.numeric(quantile(afr,0.05,na.rm = T)))
+# fifth percentile age at first reproduction
+
+data %>% 
+  group_by(sex) %>% 
+  summarise(afr_med=as.numeric(quantile(afr,0.5,na.rm = T)))
+
+adulthood <- data %>% 
+  summarise(afr_5thp=as.numeric(quantile(afr,0.05,na.rm = T))) %>% 
+  as.numeric()
+# fifth percentile age at first reproduction
+
+data %>% 
+  summarise(afr_med=as.numeric(quantile(afr,0.5,na.rm = T)))
+
+```
+
+#### Basic descriptive variables
+
+```{r}
+
+data %>% 
+  drop_na(lifespan) %>% 
+  summarise(median=median(lifespan))
+
+data %>% 
+  drop_na(lifespan) %>% 
+  count(lifespan>5)
+
+
+data %>% 
+    drop_na(lrs) %>% 
+   summarise(median=median(lrs),max=max(lrs))
+
+data %>% 
+    drop_na(lrs,sex) %>% 
+  group_by(sex) %>% 
+   summarise(median=median(lrs),max=max(lrs))
+
+data %>% 
+    drop_na(lrs) %>% 
+   count(lrs<1)
+
+```
+
+## Pedigree statistics
+
+### Installing packages
+
+```{r}
+
+library(genetics)
+library(kinship2)
+library(MCMCglmm)
+library(MasterBayes)
+
+packageurl <- "https://cran.r-project.org/src/contrib/Archive/pedantics/pedantics_1.7.tar.gz"
+install.packages(packageurl, repos=NULL, type="source")
+library(pedantics)
+```
+### Fixing pedigree with pedantics and generating pedigree statistics
+
+```{r}
+
+ped <- ped %>%
+  rename(id=IDp) %>% 
+  rename(dam=IDm) %>%
+  rename(sire=IDf)
+
+ped <- ped %>% dplyr::select(id,dam,sire)
+
+ped.fixed <- fixPedigree(Ped=ped[,1:3])
+head(ped.fixed)
+
+ped.stats <- pedigreeStats(Ped=ped.fixed, lowMem=TRUE, graphicalReport = "n")
+
+pedStatSummary(ped.stats)
+
+hist.default(ped.stats$inbreedingCoefficients)
+
+```
+
+#### Known never to have married
+
+```{r}
+data %>% count(unmarried)
+```
+
+## Estimating arrival and departure years
+
+The first task is to estimate when individuals were present in the population of elmthal and therefore were making genetic contributions. This involves estimating an arrival year (when the individual first appeared in the population) and departure year (when the individual left the population). For fully residential individuals, this would be their birth and death years, respectively.
+
+I will use 4 variables to help estimate when individuals arrived and departed the population: **byear **(birth year), **dyear** (death year), **cregcode** (the town in which their birth was registered), **sregcode** (the town in which their offspring births were registered).
+
+The full dataset contains individuals from all accross Glarus. I am focusing on individuals from the parishes of Linthal and Elm. I will do these separately for both parishes. I will now import the dataset and subset for those who were either born or had children in lin (c/sregcode=GL03).
+
+
+```{r import_and_subset}
+
+data_lin <- data[data$cregcode=="GL09"|data$sregcode=="GL09",] # subset for only individuals who were born or had family in lin (i.e. have a recorded appearance in the population)
+
+data_lin <-  data_lin[!is.na(data_lin$IDp)==T,] #this also removes rows that are blank and should be ignored (ID is used for this because every row must have an ID by definition)
+
+data_lin %>% count(is.na(byear))
+# Removed individuals with no byear
+data_lin <-  data_lin[!is.na(data_lin$byear)==T,]
+
+# I will also add a 10 year and 20 year cohort variable
+first_byear <- min(data_lin$byear,na.rm = T)
+last_byear <- max(data_lin$byear,na.rm = T)
+
+first_dyear <- min(data_lin$dyear,na.rm = T)
+last_dyear <- max(data_lin$dyear,na.rm = T)
+
+data_lin$bcohort.20 <- cut(data_lin$byear,seq(first_byear-1,first_byear+459,20))
+data_lin$bcohort.10 <- cut(data_lin$byear,seq(first_byear-1,first_byear+449,10))
+
+sex.bcohort10.lifespan <- data_lin %>% 
+  group_by(bcohort.10,sex) %>% 
+  summarise(predicted_lifespan=median(lifespan,na.rm = T)) %>% 
+  drop_na(bcohort.10,sex)
+
+bcohort10.lifespan <- data_lin %>% 
+  group_by(bcohort.10) %>% 
+  summarise(predicted_lifespan=median(lifespan,na.rm = T)) %>% 
+  drop_na(bcohort.10)
+bcohort10.lifespan$sex <- NA
+
+bcohort10.lifespan_tojoin <- rbind(bcohort10.lifespan,sex.bcohort10.lifespan)
+
+data_lin<- left_join(data_lin, bcohort10.lifespan_tojoin, by = c("sex"="sex", "bcohort.10"="bcohort.10"))
+
+```
+
+#### Predicting dyear for missing data
+
+First I need to predict the death year for individuals without a recorded death year.
+
+There are more death years missing in the final years.
+
+```{r}
+
+data_lin %>% 
+  count(byear,is.na(dyear)) %>% 
+  ggplot(aes(x=byear, y=n,fill=`is.na(dyear)`), fill="steelblue") +
+  geom_density(stat="identity", width=0.8,alpha=0.3) +
+  theme_bw() +
+  ylim(c(0,110))+
+  theme(axis.line = element_line(colour = "black"), 
+        axis.line.x.bottom = element_line(colour = "black"),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        panel.border = element_blank(),
+        panel.background = element_blank()) +
+  theme(axis.text = element_text(colour = "black", size = 10, angle = 0, family = "serif")) +
+  theme(legend.position = "top",legend.justification = c(0.01, 1))+
+  theme(axis.title.x =  element_text(colour = "black", size = 16, face="bold")) +
+  theme(axis.title.y = element_text(colour = "black", size = 16, face="bold", lineheight = 0.5))
+
+```
+
+This is because they are still alive. For these I will need to set them to still be alive at the final death year (the end of the study period). I will estimate the individuals who are still alive if the fall within the one [sex specific median lifespan for the 1910-1920 cohort] of the study end year].
+
+The lifespans are variable over time and sex specific. To get an estimate of lifespan for these individuals I will use the lifespan of individuals from the 1910-1920 cohort. This is the most recent cohort estimate available before the decline in lifespan due to censoring. 
+
+For the remaining death years that are unknown I will uses the cohort and sex specific median lifespan.
+
+```{r}
+
+ls.1910_20_male <- sex.bcohort10.lifespan$predicted_lifespan[sex.bcohort10.lifespan$bcohort.10=="(1.91e+03,1.92e+03]" & sex.bcohort10.lifespan$sex=="M"]
+ls.1910_20_female <- sex.bcohort10.lifespan$predicted_lifespan[sex.bcohort10.lifespan$bcohort.10=="(1.91e+03,1.92e+03]" & sex.bcohort10.lifespan$sex=="F"]
+ls.1910_20_unsexed <- bcohort10.lifespan$predicted_lifespan[bcohort10.lifespan$bcohort.10=="(1.91e+03,1.92e+03]"]
+
+# pdf(file = "lifespan_sex_cohort.10.pdf",   # The directory you want to save the file in
+#     width = 10, # The width of the plot in inches
+#     height = 6) # The height of the plot in inches
+
+data_lin %>%
+  drop_na(lifespan) %>% 
+  group_by(bcohort.10,sex) %>% 
+  summarise(median.ls=median(lifespan),sd.ls=sd(lifespan)) %>% 
+  ggplot(aes(x=bcohort.10, y=median.ls, color=sex)) +
+  geom_point(size=1,position=position_dodge(.9))  +
+  geom_errorbar(aes(ymin=median.ls-1.96*sd.ls, ymax=median.ls+1.96*sd.ls), width=.2,
+                 position=position_dodge(.9)) +
+  theme_bw() +
+  theme(axis.line = element_line(colour = "black"), 
+        axis.line.x.bottom = element_line(colour = "black"),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        panel.border = element_blank(),
+        panel.background = element_blank()) +
+  theme(axis.text = element_text(colour = "black", size = 16, angle = 90, family = "serif")) +
+  theme(legend.position = "right",legend.justification = c(0.01, 1))+
+  theme(axis.title.x =  element_text(colour = "black", size = 16, face="bold")) +
+  theme(axis.title.y = element_text(colour = "black", size = 16, face="bold", lineheight = 0.5))
+
+# Assinging is.dyear.known class
+for(i in seq_along(data_lin$IDp)) {
+  crr <- data_lin[i,]
+  if(is.na(crr$dyear)==F) {data_lin$is.dyear.known[i]<-"yes"}
+    else{if(is.na(crr$sex)==T & crr$byear>(last_byear-ls.1910_20_unsexed)) {data_lin$is.dyear.known[i]<-"no:incomplete_lifespan"} 
+      else{if(is.na(crr$sex)==T & crr$byear<=(last_byear-ls.1910_20_unsexed)) {data_lin$is.dyear.known[i]<-"no:dyear_missing"} 
+        else{if(crr$sex=="M" & crr$byear>(last_byear-ls.1910_20_male)) {data_lin$is.dyear.known[i]<-"no:incomplete_lifespan"} 
+          else{if(crr$sex=="M" & crr$byear<=(last_byear-ls.1910_20_male)) {data_lin$is.dyear.known[i]<-"no:dyear_missing"} 
+            else{if(crr$sex=="F" & crr$byear>(last_byear-ls.1910_20_female)) {data_lin$is.dyear.known[i]<-"no:incomplete_lifespan"} 
+              else{data_lin$is.dyear.known[i]<-"no:dyear_missing"} 
+            }
+          }
+        }
+      }
+    }
+}
+
+# check this has worked
+summary(data_lin$byear[data_lin$is.dyear.known=="yes"])
+summary(data_lin$byear[data_lin$is.dyear.known=="no:dyear_missing"])
+summary(data_lin$byear[data_lin$is.dyear.known=="no:incomplete_lifespan"])
+
+# predicting death year
+for(i in seq_along(data_lin$IDp)) {
+  crr <- data_lin[i,]
+  if(crr$is.dyear.known=="yes") {data_lin$dyear.predicted[i]<-data_lin$dyear[i]}
+    else{if(crr$is.dyear.known=="no:dyear_missing") {data_lin$dyear.predicted[i]<-(data_lin$byear[i]+data_lin$predicted_lifespan[i])}
+      else{data_lin$dyear.predicted[i]<-last_dyear}}
+}
+
+# Check this has worked
+hist.default(data_lin$dyear.predicted[data_lin$is.dyear.known=="no:dyear_missing"])
+# Looks good
+
+```
+
+#### Estimating migrant status
+
+To estimate arrival and departure years I am first going to estimate a migrant status for all lin individuals using the cregcode and sregcode. First I will do this for individuals we know the sregcode for.
+
+The definitions for the classes of this are as follows:
+- **resident**, born in the population and reproduced in the population
+- **emmigrant**, born in the population but reproduced outside of the population
+- **immigrant**, born outside of the population but reproduced inside of the population
+- **sregcode unknown**, will class these after.
+
+Some of these estamations rely on life history information from the population, therefore I will first estimate these parameters. I have defined these variables in order to best estimate the population size based on average. 
+
+```{r}
+
+for(i in seq_along(data_lin$IDp)) {
+  crr <- data_lin[i,]
+  if(is.na(crr$cregcode)==T & is.na(crr$sregcode)==T) {data_lin$migrantstatus[i]<-NA}
+  else{if(is.na(crr$cregcode)==F & is.na(crr$sregcode)==T) {data_lin$migrantstatus[i]<-"sregcode_unknown"}
+    else{if(is.na(crr$cregcode)==T & crr$sregcode=="GL09") {data_lin$migrantstatus[i]<-"immigrant"}
+      else{if(crr$cregcode!="GL09" & crr$sregcode=="GL09") {data_lin$migrantstatus[i]<-"immigrant"}
+          else{if(crr$cregcode=="GL09" & crr$sregcode!="GL09") {data_lin$migrantstatus[i]<-"emigrant"}
+            else{if(crr$cregcode=="GL09" & crr$sregcode=="GL09") {data_lin$migrantstatus[i]<-"resident"}
+              else{}}
+        }
+      }
+      }
+    }
+}
+
+summary(as.factor(data_lin$migrantstatus))
+
+```
+
+#### Cregcode unknown
+
+Definition	(Arrival year,	Departure year):
+**Died in childhood**	- Any individual who’s lifespan is less than their sex specific 20-year cohort’s 5th percentile for AFR	(Birth year	Death year)
+**Incomplete life history** -	Any individual who born after 1946	(Birth year,	Death year)
+**Assumed migrant**	- All other individuals	(Birth year,Birth year + 18 (unless they die before the age of 18))
+
+#### Adding Cohort-specific parameters
+
+```{r}
+# fifth percentile age at first reproduction
+sex.bcohort20.afr_5thp <- data_lin %>% 
+  group_by(bcohort.20,sex) %>% 
+  summarise(afr_5thp=as.numeric(quantile(afr,0.05,na.rm = T))) %>% 
+  drop_na(bcohort.20,sex)
+
+bcohort20.afr_5thp <- data_lin %>% 
+  group_by(bcohort.20) %>% 
+  summarise(afr_5thp=as.numeric(quantile(afr,0.05,na.rm = T))) %>% 
+  drop_na(bcohort.20)
+bcohort20.afr_5thp$sex <- NA
+
+bcohort20.afr_5thp_tojoin <- rbind(bcohort20.afr_5thp,sex.bcohort20.afr_5thp)
+
+# extrapolate for missing cohorts
+bcohort20.afr_5thp_tojoin$afr_5thp[22] <- bcohort20.afr_5thp_tojoin$afr_5thp[21]
+
+bcohort20.afr_5thp_tojoin$afr_5thp[66] <- bcohort20.afr_5thp_tojoin$afr_5thp[62]
+bcohort20.afr_5thp_tojoin$afr_5thp[64] <- bcohort20.afr_5thp_tojoin$afr_5thp[62]
+
+bcohort20.afr_5thp_tojoin$afr_5thp[65] <- bcohort20.afr_5thp_tojoin$afr_5thp[63]
+
+data_lin<- left_join(data_lin, bcohort20.afr_5thp_tojoin, by = c("sex"="sex", "bcohort.20"="bcohort.20"))
+
+summary(data_lin$afr_5thp)
+
+data_lin[is.na(data_lin$afr_5thp)==T,] # check this has worked
+
+bcohort20.afr_5thp_tojoin
+
+```
+
+```{r}
+# median age at first reproduction
+sex.bcohort20.afr_median <- data_lin %>% 
+  group_by(bcohort.20,sex) %>% 
+  summarise(afr_median=median(afr,na.rm = T)) %>% 
+  drop_na(bcohort.20,sex)
+
+bcohort20.afr_median <- data_lin %>% 
+  group_by(bcohort.20) %>% 
+  summarise(afr_median=median(afr,na.rm = T)) %>% 
+  drop_na(bcohort.20)
+
+
+bcohort20.afr_median$sex <- NA
+
+bcohort20.afr_median_tojoin <- rbind(bcohort20.afr_median,sex.bcohort20.afr_median)
+
+# extrapolate for missing cohorts
+bcohort20.afr_median_tojoin$afr_median[22] <- bcohort20.afr_median_tojoin$afr_median[21]
+
+bcohort20.afr_median_tojoin$afr_median[66] <- bcohort20.afr_median_tojoin$afr_median[62]
+bcohort20.afr_median_tojoin$afr_median[64] <- bcohort20.afr_median_tojoin$afr_median[62]
+
+bcohort20.afr_median_tojoin$afr_median[65] <- bcohort20.afr_median_tojoin$afr_median[63]
+
+data_lin<- left_join(data_lin, bcohort20.afr_median_tojoin, by = c("sex"="sex", "bcohort.20"="bcohort.20"))
+
+summary(as.numeric(data_lin$afr_median))
+
+bcohort20.afr_median_tojoin 
+
+# pdf(file = "afr_sex_cohort.20.pdf",   # The directory you want to save the file in
+#     width = 10, # The width of the plot in inches
+#     height = 6) # The height of the plot in inches
+
+data_lin %>%
+  drop_na(afr) %>% 
+  group_by(bcohort.20,sex) %>% 
+  summarise(median.afr=median(afr),sd.afr=sd(afr)) %>% 
+  ggplot(aes(x=bcohort.20, y=median.afr, color=sex)) +
+  geom_point(size=1,position=position_dodge(.9))  +
+  geom_errorbar(aes(ymin=median.afr-1.96*sd.afr, ymax=median.afr+1.96*sd.afr), width=.2,
+                 position=position_dodge(.9)) +
+  theme_bw() +
+  theme(axis.line = element_line(colour = "black"), 
+        axis.line.x.bottom = element_line(colour = "black"),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        panel.border = element_blank(),
+        panel.background = element_blank()) +
+  theme(axis.text = element_text(colour = "black", size = 16, angle = 90, family = "serif")) +
+  theme(legend.position = "right",legend.justification = c(0.01, 1))+
+  theme(axis.title.x =  element_text(colour = "black", size = 16, face="bold")) +
+  theme(axis.title.y = element_text(colour = "black", size = 16, face="bold", lineheight = 0.5))
+
+
+```
+
+
+```{r}
+
+# pdf(file = "known_unknown_sregcode_byear.pdf",   # The directory you want to save the file in
+#     width = 10, # The width of the plot in inches
+#     height = 6) # The height of the plot in inches
+
+data_lin %>% 
+  count(byear,is.na(sregcode)) %>% 
+  ggplot(aes(x=byear, y=n,fill=`is.na(sregcode)`), fill="steelblue") +
+  geom_density(stat="identity", width=0.8,alpha=0.3) +
+  theme_bw() +
+  ylim(c(0,110))+
+  theme(axis.line = element_line(colour = "black"), 
+        axis.line.x.bottom = element_line(colour = "black"),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        panel.border = element_blank(),
+        panel.background = element_blank()) +
+  theme(axis.text = element_text(colour = "black", size = 10, angle = 0, family = "serif")) +
+  theme(legend.position = "top",legend.justification = c(0.01, 1))+
+  theme(axis.title.x =  element_text(colour = "black", size = 16, face="bold")) +
+  theme(axis.title.y = element_text(colour = "black", size = 16, face="bold", lineheight = 0.5))
+
+# Decline starts at around 47 also (same as linthal) so will used that to determine incomplete life history individuals
+
+for(i in seq_along(data_lin$IDp)) {
+  crr <- data_lin[i,]
+  if(crr$migrantstatus=="sregcode_unknown") 
+    {if((crr$dyear.predicted-crr$byear)<crr$afr_5thp) {data_lin$migrantstatus[i]<-"died_in_childhood"}
+      else{if(crr$byear>1946) {data_lin$migrantstatus[i]<-"incomplete_life_history"}
+     else{data_lin$migrantstatus[i]<-"assumed_immigrant"}}    
+    }
+    else{}
+}
+summary(as.factor(data_lin$migrantstatus))
+
+
+```
+
+#### Assigning arrival and departure year
+
+Now I will use these classses to assgin a arrival and departure year. These are assigned as follows
+
+Resident	                Cregcode and Sregcode, both equal the study parish	(Birth year,	Death year)
+Emigrant	                Cregcode equals the study parish; sregcode does not equal the study parish	(Birth year,	Birth year of first offspring outside of the parish)
+Immigrant	                Cregcode does not equal the study parish; sregcode equals the study parish	(Birth year of first offspring outside of the parish,	Death year)
+Died in childhood	        Any individual who’s lifespan is less than their sex specific 20-year cohort’s 5th percentile for AFR	(Birth year, Death year)
+Incomplete life history	  Any individual who born after 1946	(Birth year, Death year)
+Assumed migrant	          All other individuals	Birth year	(Birth year + 18 (unless they die before the age of 18))
+
+
+```{r}
+
+# Died in childhood
+# pdf(file = "known_unknown_sregcode_lifespan.pdf",   # The directory you want to save the file in
+#     width = 10, # The width of the plot in inches
+#     height = 6) # The height of the plot in inches
+
+data_lin %>% 
+  count(round(lifespan,0),is.na(sregcode)) %>% 
+  ggplot(aes(x=`round(lifespan, 0)`, y=n,fill=`is.na(sregcode)`), fill="steelblue") +
+  geom_density(stat="identity", width=0.8,alpha=0.3) +
+  theme_bw() +
+  ylim(c(0,1100)) +
+  theme(axis.line = element_line(colour = "black"), 
+        axis.line.x.bottom = element_line(colour = "black"),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        panel.border = element_blank(),
+        panel.background = element_blank()) +
+  theme(axis.text = element_text(colour = "black", size = 10, angle = 0, family = "serif")) +
+  theme(legend.position = "top",legend.justification = c(0.01, 1))+
+  theme(axis.title.x =  element_text(colour = "black", size = 16, face="bold")) +
+  theme(axis.title.y = element_text(colour = "black", size = 16, face="bold", lineheight = 0.5))
+
+
+data <- data[!is.na(data$byear),]
+# Assigning Arrival year
+
+for(i in seq_along(data_lin$IDp)) {
+  crr <- data_lin[i,]
+  if(crr$migrantstatus=="immigrant" & crr$sex=="F") {
+            offspring <- data[data$IDm==crr$IDp & !is.na(data$IDm),]
+            offspring <-  offspring[na.omit(offspring$cregcode=="GL09"),]
+            if((length(offspring$byear)==0)==T) {data_lin$arryear[i]<-data_lin$byear[i]+data_lin$afr_median[i]}
+      else{data_lin$arryear[i]<- min(na.omit(offspring$byear)) }}
+              
+  else{if(crr$migrantstatus=="immigrant" & crr$sex=="M") {
+              offspring <- data[data$IDf==crr$IDp & !is.na(data$IDf),]
+              offspring <-  offspring[na.omit(offspring$cregcode=="GL09"),]
+                  if((length(offspring$byear)==0)==T) {data_lin$arryear[i]<-data_lin$byear[i]+data_lin$afr_median[i]}
+      else{
+              data_lin$arryear[i]<- min(na.omit(offspring$byear)) }}
+                   else{data_lin$arryear[i]<-crr$byear} # for resident, emmigrant, died in childhood, assumed migrant, incomplete life history
+            }
+}
+
+data_lin[is.infinite(data_lin$arryear),] # none
+
+```
+
+
+```{r}
+migration_age <- 18
+
+# Assigning departure year
+for(i in seq_along(data_lin$IDp)) {
+  crr <- data_lin[i,]
+  if(crr$migrantstatus=="emigrant" & crr$sex=="F") {
+            offspring <- data[data$IDm==crr$IDp & !is.na(data$IDm),]
+            offspring <-  offspring[na.omit(!offspring$cregcode=="GL09"),]
+            if((length(offspring$byear)==0)==T) {data_lin$depyear[i]<-data_lin$byear[i]+data_lin$afr_median[i]}
+      else{
+            data_lin$depyear[i]<- min(na.omit(offspring$byear)) }}
+              else{if(crr$migrantstatus=="emigrant" & crr$sex=="M") {
+              offspring <- data[data$IDf==crr$IDp & !is.na(data$IDf),]
+              offspring <-  offspring[na.omit(!offspring$cregcode=="GL09"),]
+                  if((length(offspring$byear)==0)==T) {data_lin$depyear[i]<-data_lin$byear[i]+data_lin$afr_median[i]}
+      else{
+              data_lin$depyear[i]<- min(na.omit(offspring$byear)) }}
+                   else{if(crr$migrantstatus=="assumed_emigrant") {data_lin$depyear[i]<-crr$byear+ migration_age}
+                     else{data_lin$depyear[i]<-crr$dyear.predicted} # for resident, immigrant, died in childhood, incomplete life history
+                   }
+              }
+}
+```
+
+
+#### Sorting Negative immigrants
+
+```{r}
+# Check it all looks correct
+data_lin$arr_dep_dif <- data_lin$depyear-data_lin$arryear
+
+data_lin %>% group_by(migrantstatus) %>% summarise(mean=mean(arr_dep_dif))
+
+
+# pdf(file = "lin_migrant_status_present_length_plot.pdf",   # The directory you want to save the file in
+#     width = 12, # The width of the plot in inches
+#     height = 7.5) # The height of the plot in inches
+
+data_lin %>% 
+  group_by(migrantstatus) %>% 
+  summarise(mean_presence=mean(arr_dep_dif),sd_presence=sd(arr_dep_dif)) %>% 
+  ggplot(aes(x=migrantstatus, y=mean_presence)) +
+  geom_point()+
+    geom_errorbar(aes(ymin=mean_presence+1.96*sd_presence,ymax=mean_presence-1.96*sd_presence)) +
+    theme_classic()
+
+hist.default(data_lin$arr_dep_dif[data_lin$migrantstatus=="emigrant"])
+hist.default(data_lin$arr_dep_dif[data_lin$migrantstatus=="resident"])
+hist.default(data_lin$arr_dep_dif[data_lin$migrantstatus=="died_in_childhood"])
+hist.default(data_lin$arr_dep_dif[data_lin$migrantstatus=="incomplete_life_history"])
+
+immigrant_errors <- data_lin[data_lin$migrantstatus=="immigrant" & data_lin$arr_dep_dif<5,] # where I have predicted dyear for some of the immigrants the death year is smaller than when they reproduced first (negative arr_dep_dif). For these I will set their depyear for one more year than their arrival year
+
+data_lin$depyear[data_lin$migrantstatus=="immigrant" & data_lin$arr_dep_dif<1] <- data_lin$arryear[data_lin$migrantstatus=="immigrant" & data_lin$arr_dep_dif<1]+1
+
+# Check it all looks correct
+data_lin$arr_dep_dif <- data_lin$depyear-data_lin$arryear
+
+hist.default(data_lin$arr_dep_dif[data_lin$migrantstatus=="immigrant"])
+
+```
+
+#### Sorting multiplesreg individuals 
+
+A few individuals (n=~450) have multiple family code locations, i.e. have reproduced with different spouses or in different towns.
+
+All individuals that had multiple family codes were residents and emigrants, so I have classed them as emigrants and used the byear of first child outside population as departure year
+
+``` {r multiplesreg}
+# Assigning multiplesreg individuals
+data_lin$multiplesreg <- duplicated(data_lin$IDp)
+dup.ind<- as.data.frame(data_lin$IDp[data_lin$multiplesreg==TRUE])#this code includes individuals who have multiple rows but sregs are all the same (e.g. multiple wives)
+
+dup.data <- data_lin[data_lin$IDp %in% dup.ind,]
+
+dup.ind$multiplesreg <- TRUE
+
+colnames(dup.ind) <- c("IDp","multiplesreg")
+
+data_lin <- left_join(data_lin, dup.ind)
+
+# So use this code, I first create a summary table of migrant statuses and I can then filter for those that have the same migrant status multiple times. To check what they are. In this case only emmigrants have multiple so it is fine to use the loop below.
+# count.mst <- dup.data %>%
+#   count(IDp,migrantstatus) %>%
+#   arrange(IDp)
+
+# count.moves <- data_lin %>% 
+#   filter(multiplesreg==TRUE) %>% 
+#   count(IDp)
+# 
+# count.mst<-left_join(count.mst,count.moves, by="IDp")
+# 
+# count.mst %>% arrange(n.y)
+# 
+# count.mst <- count.mst %>% 
+#   filter(!n.x==n.y)
+# 
+# for(i in seq_along(data_lin$IDp)) {
+#   if((data_lin$IDp[i] %in% count.mst$IDp)) {data_lin$multiplediffsreg[i] <- TRUE}
+#     else {data_lin$multiplediffsreg[i] <- FALSE}
+# }
+
+# create unique individual df
+data_lin_uni <- data_lin[data_lin$multiplesreg==FALSE,]
+
+# Combining individual migrant statuses correctly for multiple regs
+for(i in seq_along(data_lin_uni$IDp)) {
+  id <- data_lin_uni$IDp[i]
+  if(data_lin$multiplesreg[data_lin$IDp==id]==TRUE) {
+    id.data <- data_lin[data_lin$IDp==id,]
+    id.data <- id.data[id.data$migrantstatus=="emmigrant",]  ### This currently only works for emmigrant and resident combinations (the only combinations found with GL03)
+    data_lin_uni$depyear[i] <- min(id.data$depyear)
+  }
+  else{
+  }
+}
+sum(is.na(data_lin$arryear))
+```
+
+``` {r save file}
+data_lin_uni$arryear <- round(data_lin_uni$arryear,0)
+data_lin_uni$depyear <- round(data_lin_uni$depyear,0)
+
+# We have successfully predicted the arrival and departure years for all individuals.
+data_lin_uni %>% count(!is.na(arryear))
+data_lin_uni %>% count(!is.na(depyear))
+
+write.csv(data_lin_uni,"data_lin_uni.csv")
+
+```
+
+
+## Statistics for SUPM1
+
+```{r}
+
+data_elm_uni <- read.csv("data_elm_uni.csv")
+data_lin_uni <- read.csv("data_lin_uni.csv")
+
+nrow(data_elm_uni)
+data_elm_uni %>% count(is.na(cregcode))
+data_elm_uni %>% filter(!migrantstatus=="died_in_childhood"&!migrantstatus=="incomplete_life_history") %>% 
+  count(is.na(sregcode))
+data_elm_uni %>% count(is.na(dyear))
+
+data_elm_uni %>% 
+  count(is.dyear.known)
+
+data_elm_uni %>%count(migrantstatus)
+
+
+data_elm_uni <- read.csv("data_elm_uni.csv")
+data_lin_uni <- read.csv("data_lin_uni.csv")
+
+nrow(data_lin_uni)
+data_lin_uni %>% count(is.na(cregcode))
+data_lin_uni %>% filter(!migrantstatus=="died_in_childhood"&!migrantstatus=="incomplete_life_history") %>% 
+  count(is.na(sregcode))
+data_lin_uni %>% count(is.na(dyear))
+
+data_lin_uni %>% 
+  count(is.dyear.known)
+
+data_lin_uni %>% 
+  filter(cregcode=="GL03") %>% 
+  count(sregcode=="GL03")
+
+data_lin_uni %>%count(migrantstatus)
+
+```
+
+
+
+
+
+
+#### Estimating arrival and departure years for individuals
+
+The first task is to estimate when individuals were present in the population of elm and therefore were making genetic contributions. This involves estimating an arrival year (when the individual first appeared in the population) and departure year (when the individual left the population). For fully residential individuals, this would be their birth and death years, respectively.
+
+I will use 4 variables to help estimate when individuals arrived and departed the population: **byear**(birth year), **dyear** (death year), **cregcode** (the town in which their birth was registered), **sregcode** (the town in which their offspring births were registered).
+
+The full dataset contains individuals from all across Glarus. I will now import the dataset and subset for those who were either born or had children in elm (c/sregcode=GL03).
+
+
