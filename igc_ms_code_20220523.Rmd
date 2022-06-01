@@ -25,7 +25,7 @@ library(tidyverse)
 ## Data import and descriptive statistics
 
 ```{r}
-data <- read.delim("data_GL20210824.txt", sep ="\t") #import raw dataset
+data <- read.delim("data_20220527.txt", sep ="\t") #import raw dataset
 
 # number of unique individuals, (total sample size)
 data %>% distinct(IDp) %>% count()
@@ -562,10 +562,6 @@ data_lin$arr_dep_dif <- data_lin$depyear-data_lin$arryear
 data_lin %>% group_by(migrantstatus) %>% summarise(mean=mean(arr_dep_dif))
 
 
-# pdf(file = "lin_migrant_status_present_length_plot.pdf",   # The directory you want to save the file in
-#     width = 12, # The width of the plot in inches
-#     height = 7.5) # The height of the plot in inches
-
 data_lin %>% 
   group_by(migrantstatus) %>% 
   summarise(mean_presence=mean(arr_dep_dif),sd_presence=sd(arr_dep_dif)) %>% 
@@ -636,7 +632,7 @@ data_lin_uni <- data_lin[data_lin$multiplesreg==FALSE,]
 # Combining individual migrant statuses correctly for multiple regs
 for(i in seq_along(data_lin_uni$IDp)) {
   id <- data_lin_uni$IDp[i]
-  if(data_lin$multiplesreg[data_lin$IDp==id]==TRUE) {
+  if(length(data_lin$multiplesreg[data_lin$IDp==id]>1)) {
     id.data <- data_lin[data_lin$IDp==id,]
     id.data <- id.data[id.data$migrantstatus=="emmigrant",]  ### This currently only works for emmigrant and resident combinations (the only combinations found with GL09)
     data_lin_uni$depyear[i] <- min(id.data$depyear)
@@ -891,6 +887,7 @@ data_elm[is.na(data_elm$afr_5thp)==T,] # check this has worked
 bcohort20.afr_5thp_tojoin
 
 ```
+
 ```{r}
 # median age at first reproduction
 sex.bcohort20.afr_median <- data_elm %>% 
@@ -1138,41 +1135,42 @@ colnames(dup.ind) <- c("IDp","multiplesreg")
 data_elm <- left_join(data_elm, dup.ind)
 
 # So use this code, I first create a summary table of migrant statuses and I can then filter for those that have the same migrant status multiple times. To check what they are. In this case only emmigrants have multiple so it is fine to use the loop below.
-# count.mst <- dup.data %>%
-#   count(IDp,migrantstatus) %>%
-#   arrange(IDp)
+count.mst <- dup.data %>%
+  count(IDp,migrantstatus) %>%
+  arrange(IDp)
 
-# count.moves <- data_elm %>% 
-#   filter(multiplesreg==TRUE) %>% 
-#   count(IDp)
-# 
-# count.mst<-left_join(count.mst,count.moves, by="IDp")
-# 
-# count.mst %>% arrange(n.y)
-# 
-# count.mst <- count.mst %>% 
-#   filter(!n.x==n.y)
-# 
-# for(i in seq_along(data_elm$IDp)) {
-#   if((data_elm$IDp[i] %in% count.mst$IDp)) {data_elm$multiplediffsreg[i] <- TRUE}
-#     else {data_elm$multiplediffsreg[i] <- FALSE}
-# }
+count.moves <- data_elm %>%
+  filter(multiplesreg==TRUE) %>%
+  count(IDp)
 
-# # create unique individual df
-# data_elm_uni <- data_elm[data_elm$multiplesreg==FALSE,]
-# 
-# # Combining individual migrant statuses correctly for multiple regs
-# for(i in seq_along(data_elm_uni$IDp)) {
-#   id <- data_elm_uni$IDp[i]
-#   if(data_elm$multiplesreg[data_elm$IDp==id]==TRUE) {
-#     id.data <- data_elm[data_elm$IDp==id,]
-#     id.data <- id.data[id.data$migrantstatus=="emmigrant",]  ### This currently only works for emmigrant and resident combinations (the only combinations found with GL03)
-#     data_elm_uni$depyear[i] <- min(id.data$depyear)
-#   }
-#   else{
-#   }
-# }
-# sum(is.na(data_elm$arryear))
+count.mst<-left_join(count.mst,count.moves, by="IDp")
+
+count.mst %>% arrange(n.y)
+
+count.mst <- count.mst %>%
+  filter(!n.x==n.y)
+
+for(i in seq_along(data_elm$IDp)) {
+  if((data_elm$IDp[i] %in% count.mst$IDp)) {data_elm$multiplediffsreg[i] <- TRUE}
+    else {data_elm$multiplediffsreg[i] <- FALSE}
+}
+
+# create unique individual df
+data_elm_uni <- data_elm[data_elm$multiplesreg==FALSE,]
+
+# Combining individual migrant statuses correctly for multiple regs
+for(i in seq_along(data_elm_uni$IDp)) {
+  print(i)
+  id <- data_elm_uni$IDp[i]
+  if(data_elm$multiplesreg[data_elm$IDp==id]==TRUE) {
+    id.data <- data_elm[data_elm$IDp==id,]
+    id.data <- id.data[id.data$migrantstatus=="emmigrant",]  ### This currently only works for emmigrant and resident combinations (the only combinations found with GL03)
+    data_elm_uni$depyear[i] <- min(id.data$depyear)
+  }
+  else{
+  }
+}
+sum(is.na(data_elm$arryear))
 ```
 
 ``` {r save file}
@@ -1240,7 +1238,7 @@ The model for estimating the genetic contributions is VERY intensive. And this i
 
 ```{r}
 library(visPedigree)
-ped <- read.delim("data_GL20210824.txt.txt", sep ="\t")
+ped <- read.delim("data_20220527.txt", sep ="\t")
 ped <- ped[,c("IDp","IDf","IDm")] # Rows for each individual with mother and father IDs.
 ped <- ped %>% distinct(IDp,.keep_all = T) # Make sure these are all unique rows or the prepped function will not work
 
@@ -1270,7 +1268,7 @@ library("nadiv") #for creating the additive genetic relatedness matrix
 # First I must import the arrivial/departure information individuals for each individual in the population of interest
 
 # Pedigree
-ped <- read.delim("data_GL20210824.txt", sep ="\t")
+ped <- read.delim("data_20220527.txt", sep ="\t")
 ped <- ped[,c("IDp","IDf","IDm")] # Rows for each individual with mother and father IDs.
 ped <- ped %>% distinct(IDp,.keep_all = T) # Make sure these are all unique rows or the prepped function will not work (this removes individuals who have multiple marriages, and therefore appear multiple times in the pedigree, their IDf and IDm will remain the same however so these duplicated rows can be removed
 
@@ -1667,7 +1665,7 @@ Elm_Male_Ind_GenCon_20210812 <- readRDS(file = "Elm_Male_Ind_GenCon_20210812.rds
 
 ```{r}
 library(visPedigree)
-ped <- read.delim("data_GL20210824.txt.txt", sep ="\t")
+ped <- read.delim("data_20220527.txt", sep ="\t")
 ped <- ped[,c("IDp","IDf","IDm")] # Rows for each individual with mother and father IDs.
 ped <- ped %>% distinct(IDp,.keep_all = T) # Make sure these are all unique rows or the prepped function will not work
 
@@ -2186,1364 +2184,15 @@ From manuscript:
 **Although initially IGC can fluctuate substantially over generations, they are expected to stabilise at an individual’s reproductive value, which can be considered the ultimate measure of fitness (31,42,43). We evaluated stabilisation of IGC by grouping individuals into 10-year birth cohorts and quantifying the Pearson correlation coefficient between these IGC from each subsequent year and the final year (1990). When this remained above a 0.95 threshold for a period of 2 generations, IGC were considered to have stabilised (4,6). We defined a generation as the mean parental age at offspring birth, which was 32.2 (±SE, ±0.04) and 32.1 (±0.05) yr for Linthal and Elm, respectively.**
 **IGC were considered to have stabilised for individuals born before 1717 in Linthal and before 1734 in Elm (Supplementary Figure 1; the difference being likely due to the larger population size of Linthal). However, despite meeting the criteria for stabilisation of genetic contributions outlined above (4), visual inspection showed that although the fluctuations become minor, they do not reach a plateau over time (Supplementary Figure 2). We therefore   selected only individuals whose IGC were estimated over a period of at least approximately 8 generations after they were born – a period spanning an equivalent number of generations as previous studies. In total, IGC to the year 1990 from 3,728 focal individuals (1,896 from Linthal and 1,832 from Elm) were used in the analyses. The length over which IGC were estimated was at least 257.68 and 257.08 yr, and on average 314.97 (±0.93) and 318.44 (±0.88) years (for Linthal and Elm, respectively), with the birth years of focal individuals ranging between 1575-1735.**
 
-
 Here is the code for carrying out this part of the analysis.
 
 ## Testing stabilsiation
 
 First we tested stabilisation according to the definition Reid et al. 2019: correlations between expected genetic contributions for each year and the final year being above 0.95 for a duration of at least 2 generations.
 
-### Elm
+#### Calculating generation times
 
-#### Data preperation
-
-##### Females 
-
-``` {r stab_corr, data prep}
-Elm_Female_All_Alive_GenCon_20210812 <- readRDS(file = "Elm_Female_All_Alive_GenCon_20210812.rds")
-Elm_Female_Cohort_GenCon_20210812 <- readRDS(file = "Elm_Female_Cohort_GenCon_20210812.rds")
-Elm_Female_Ind_GenCon_20210812 <- readRDS(file = "Elm_Female_Ind_GenCon_20210812.rds")
-
-# Count number of indiviudals born/arrrived in each year
-arrival_count <- t(Elm_Female_Cohort_GenCon_20210812[1,]) # number of individuals "arriving" each year
-start_year <- as.numeric(gsub("Y","",colnames(Elm_Female_All_Alive_GenCon_20210812)[1]))
-end_year <- as.numeric(gsub("Y","",colnames(Elm_Female_All_Alive_GenCon_20210812)[ncol(Elm_Female_All_Alive_GenCon_20210812)]))
-rownames(arrival_count) <- start_year:end_year
-
-arrival_count <- as.data.frame(arrival_count) 
-arrival_count$year <- rownames(arrival_count)
-years.data <- as.data.frame(arrival_count[!is.na(arrival_count$`1`) & arrival_count$`1`>0,])
-
-# Individual genetic contributions ----------------------------------------
-
-colnames(Elm_Female_All_Alive_GenCon_20210812) <- as.numeric(gsub("Y","",colnames(Elm_Female_All_Alive_GenCon_20210812)))
-
-#Flips the data-set from wide to long
-All_Alive_Contributions_20210812 <- gather(Elm_Female_All_Alive_GenCon_20210812[1,]) 
-colnames(All_Alive_Contributions_20210812)<- c("Year", "Total_Genetic")
-All_Alive_Contributions_20210812 <- as.data.frame(All_Alive_Contributions_20210812)
-All_Alive_Contributions_20210812$Year <- as.numeric(All_Alive_Contributions_20210812$Year)
-
-#Extract information about each individual born in the first year, and their genetic contributions to each year after 
-#their birth. Then do this for each cohort in the dataset. Saving each as a new data frame
-
-for(i in 1:nrow(years.data)) {
-  year <- years.data[i,2]
-  if(year<1694) {
-    x <- data.frame(Elm_Female_Ind_GenCon_20210812[[paste("Y",year,sep = "")]])
-    x$ID <- rownames(x)
-    x <- reshape2::melt(x, id=c("ID"))
-    x$Cohort <- as.numeric(year)
-    x <- x[order(x$ID, x$variable),] 
-    x$Year <- as.numeric(year):(as.numeric(year)+(ncol(Elm_Female_Cohort_GenCon_20210812)-1))
-    assign(paste("Elm_Female_Genetic_Contributions_",year,sep=""),x) 
-  }
-  else{if(year<1694) {
-    x <- data.frame(Elm_Female_Ind_GenCon_20210812[[paste("Y",year,sep = "")]])
-    x$ID <- rownames(x)
-    x <- reshape2::melt(x, id=c("ID"))
-    x$Cohort <- as.numeric(year)
-    x <- x[order(x$ID, x$variable),] 
-    x$Year <- as.numeric(year):(as.numeric(year)+(ncol(Elm_Female_Cohort_GenCon_20210812)-1))
-    assign(paste("Elm_Female_Genetic_Contributions_",year,sep=""),x) 
-  }
-    else{
-      x <- data.frame(Elm_Female_Ind_GenCon_20210812[[paste("Y",year,sep = "")]])
-      x$ID <- rownames(x)
-      x <- reshape2::melt(x, id=c("ID"))
-      x$Cohort <- as.numeric(year)
-      x <- x[order(x$ID, x$variable),] 
-      x$Year <- as.numeric(year):(as.numeric(year)+301)
-      assign(paste("Elm_Female_Genetic_Contributions_",year,sep=""),x)
-    }
-  }
-  
-}
-
-for(i in 1:nrow(years.data)) { # gathers the names of these datasets in prep for gethering them all into one file
-  year <- years.data[i,2]
-  years.data$data[i] <- paste("Elm_Female_Genetic_Contributions_",year,sep="")
-} 
-
-#Combine all of the above datasets
-Elm_Female_GeneticContributions_20210812 <- rbind(mget(years.data$data)) #puts all together in a list
-
-Elm_Female_GeneticContributions_20210812 <- bind_rows(Elm_Female_GeneticContributions_20210812) #puts all together in a df
-
-rm(list = ls()[grepl("Elm_Female_Genetic_Contributions_", ls())]) #remove all individual year objects
-
-Elm_Female_GeneticContributions_20210812 <- Elm_Female_GeneticContributions_20210812[!Elm_Female_GeneticContributions_20210812$Year>end_year,] #remove all irrelevant years
-
-colnames(Elm_Female_GeneticContributions_20210812)<- c("ID", "Relative_Year", "Contribution", "Cohort", "Year")
-
-Elm_Female_GeneticContributions_20210812$Contribution <- as.numeric(Elm_Female_GeneticContributions_20210812$Contribution)
-
-Elm_Female_GeneticContributions_20210812[is.na(Elm_Female_GeneticContributions_20210812)] <- 0
-
-Elm_Female_GeneticContributions_20210812$Total_Genetic <- lapply(Elm_Female_GeneticContributions_20210812$Year, function(x) All_Alive_Contributions_20210812[match(x, All_Alive_Contributions_20210812$Year), "Total_Genetic"])
-
-Elm_Female_GeneticContributions_20210812$Total_Genetic <- as.numeric(Elm_Female_GeneticContributions_20210812$Total_Genetic)
-Elm_Female_GeneticContributions_20210812$Proportional <- as.numeric(Elm_Female_GeneticContributions_20210812$Contribution/Elm_Female_GeneticContributions_20210812$Total_Genetic)
-
-Elm_Female_GeneticContributions_20210812[is.na(Elm_Female_GeneticContributions_20210812)] <- 0
-```
-
-##### Males
-
-``` {r}
-Elm_Male_All_Alive_GenCon_20210812 <- readRDS(file = "Elm_Male_All_Alive_GenCon_20210812.rds")
-Elm_Male_Cohort_GenCon_20210812 <- readRDS(file = "Elm_Male_Cohort_GenCon_20210812.rds")
-Elm_Male_Ind_GenCon_20210812 <- readRDS(file = "Elm_Male_Ind_GenCon_20210812.rds")
-
-# Count number of indiviudals born/arrrived in each year
-arrival_count <- t(Elm_Male_Cohort_GenCon_20210812[1,]) # number of individuals "arriving" each year
-start_year <- as.numeric(gsub("Y","",colnames(Elm_Male_All_Alive_GenCon_20210812)[1]))
-end_year <- as.numeric(gsub("Y","",colnames(Elm_Male_All_Alive_GenCon_20210812)[ncol(Elm_Male_All_Alive_GenCon_20210812)]))
-rownames(arrival_count) <- start_year:end_year
-
-arrival_count <- as.data.frame(arrival_count) 
-arrival_count$year <- rownames(arrival_count)
-years.data <- as.data.frame(arrival_count[!is.na(arrival_count$`1`) & arrival_count$`1`>0,])
-
-# Individual genetic contributions ----------------------------------------
-
-colnames(Elm_Male_All_Alive_GenCon_20210812) <- as.numeric(gsub("Y","",colnames(Elm_Male_All_Alive_GenCon_20210812)))
-
-#Flips the data-set from wide to long
-All_Alive_Contributions_20210812 <- gather(Elm_Male_All_Alive_GenCon_20210812[1,]) 
-colnames(All_Alive_Contributions_20210812)<- c("Year", "Total_Genetic")
-All_Alive_Contributions_20210812 <- as.data.frame(All_Alive_Contributions_20210812)
-All_Alive_Contributions_20210812$Year <- as.numeric(All_Alive_Contributions_20210812$Year)
-
-#Extract information about each individual born in the first year, and their genetic contributions to each year after 
-#their birth. Then do this for each cohort in the dataset. Saving each as a new data frame
-
-for(i in 1:nrow(years.data)) {
-  year <- years.data[i,2]
-  if(year<1658) {
-    x <- data.frame(Elm_Male_Ind_GenCon_20210812[[paste("Y",year,sep = "")]])
-    x$ID <- rownames(x)
-    x <- reshape2::melt(x, id=c("ID"))
-    x$Cohort <- as.numeric(year)
-    x <- x[order(x$ID, x$variable),] 
-    x$Year <- as.numeric(year):(as.numeric(year)+(ncol(Elm_Male_Cohort_GenCon_20210812)-1))
-    assign(paste("Elm_Male_Genetic_Contributions_",year,sep=""),x) 
-  }
-  else{
-    x <- data.frame(Elm_Male_Ind_GenCon_20210812[[paste("Y",year,sep = "")]])
-    x$ID <- rownames(x)
-    x <- reshape2::melt(x, id=c("ID"))
-    x$Cohort <- as.numeric(year)
-    x <- x[order(x$ID, x$variable),] 
-    x$Year <- as.numeric(year):(as.numeric(year)+333)
-    assign(paste("Elm_Male_Genetic_Contributions_",year,sep=""),x)
-  }
-  
-}
-
-for(i in 1:nrow(years.data)) { # gathers the names of these datasets in prep for gethering them all into one file
-  year <- years.data[i,2]
-  years.data$data[i] <- paste("Elm_Male_Genetic_Contributions_",year,sep="")
-} 
-
-#Combine all of the above datasets
-Elm_Male_GeneticContributions_20210812 <- rbind(mget(years.data$data)) #puts all together in a list
-
-Elm_Male_GeneticContributions_20210812 <- bind_rows(Elm_Male_GeneticContributions_20210812) #puts all together in a df
-
-rm(list = ls()[grepl("Elm_Male_Genetic_Contributions_", ls())]) #remove all individual year objects
-
-Elm_Male_GeneticContributions_20210812 <- Elm_Male_GeneticContributions_20210812[!Elm_Male_GeneticContributions_20210812$Year>end_year,] #remove all irrelevant years
-
-colnames(Elm_Male_GeneticContributions_20210812)<- c("ID", "Relative_Year", "Contribution", "Cohort", "Year")
-
-Elm_Male_GeneticContributions_20210812$Contribution <- as.numeric(Elm_Male_GeneticContributions_20210812$Contribution)
-
-Elm_Male_GeneticContributions_20210812[is.na(Elm_Male_GeneticContributions_20210812)] <- 0
-
-Elm_Male_GeneticContributions_20210812$Total_Genetic <- lapply(Elm_Male_GeneticContributions_20210812$Year, function(x) All_Alive_Contributions_20210812[match(x, All_Alive_Contributions_20210812$Year), "Total_Genetic"])
-
-Elm_Male_GeneticContributions_20210812$Total_Genetic <- as.numeric(Elm_Male_GeneticContributions_20210812$Total_Genetic)
-Elm_Male_GeneticContributions_20210812$Proportional <- as.numeric(Elm_Male_GeneticContributions_20210812$Contribution/Elm_Male_GeneticContributions_20210812$Total_Genetic)
-
-Elm_Male_GeneticContributions_20210812[is.na(Elm_Male_GeneticContributions_20210812)] <- 0
-```
-
-Going from the output of the cluster run to the dataset for generating the plots. this needs sorting.
-
-#### Correlation Plots
-
-```{r}
-Elm_Male_GeneticContributions_20210812 <- read.csv("Elm_Male_GeneticContributions_20210812.csv")
-Elm_Female_GeneticContributions_20210812 <- read.csv("Elm_Female_GeneticContributions_20210812.csv")
-
-Elm_Male_GeneticContributions_20210812$Sex <- "Male"
-Elm_Female_GeneticContributions_20210812$Sex <- "Female"
-
-Elm_GeneticContributions_20210812 <- rbind(Elm_Male_GeneticContributions_20210812,Elm_Female_GeneticContributions_20210812)
-
-## recalculate total.genetic for both sexes
-Elm_GeneticContributions_20210812 <- dplyr::select(Elm_GeneticContributions_20210812,-Total_Genetic)
-
-start_year<- min(Elm_GeneticContributions_20210812$Year)
-end_year <- min(c(max(Elm_GeneticContributions_20210812$Year[Elm_GeneticContributions_20210812$Sex=="Male"]),max(Elm_GeneticContributions_20210812$Year[Elm_GeneticContributions_20210812$Sex=="Female"])))
-
-Year<- start_year:end_year
-All_Alive_BS <- as.data.frame(Year)
-
-All_Alive_BS$Total_Genetic <- "NA"
-
-for(i in 1:length(Year)){ ### For each year after focal year
-    year<- Year[i] ### get year (starting at the focal year)
-    All_Alive_BS$Total_Genetic[i]<-length(with(data_elm_uni,IDp[which(arryear<(year+1) & depyear>(year-1))]))  ### get list of all individuals alive that year
-}
-
-Elm_GeneticContributions_20210812 <- left_join(Elm_GeneticContributions_20210812,All_Alive_BS,by="Year")
-
-# Recalculate proportional
-Elm_GeneticContributions_20210812$Proportional <- as.numeric(Elm_GeneticContributions_20210812$Contribution)/as.numeric(Elm_GeneticContributions_20210812$Total_Genetic)
-
-```
-
-```{r fig.show="hold", out.width="25%"}
-summary(Elm_GeneticContributions_20210812) # this datafile is a tidied dataframe containin the genetic contributions (both proportional and absolute) of all individuals, for all years.
-
-# Add 10-year cohorts
-start_year<- min(Elm_GeneticContributions_20210812$Year)
-end_year <- min(c(max(Elm_GeneticContributions_20210812$Year[Elm_GeneticContributions_20210812$Sex=="Male"]),max(Elm_GeneticContributions_20210812$Year[Elm_GeneticContributions_20210812$Sex=="Female"])))
-
-Elm_GeneticContributions_20210812$cohort.10y <- 
-  cut(Elm_GeneticContributions_20210812$Cohort, c(seq(start_year-1,max(Elm_GeneticContributions_20210812$Year),10)), labels = seq(start_year,max(Elm_GeneticContributions_20210812$Year)-6,10))
-
-tempsubset <- subset(Elm_GeneticContributions_20210812, select = c("ID", "Year", "Relative_Year", "Proportional", "cohort.10y","Cohort"))
-tempsubset$Relative_Year <- as.numeric(gsub("A","",tempsubset$Relative_Year))
-
-# Estimate correlations
-#Subset and make data wide again 
-Stabilisation <- subset(tempsubset, select = c("ID", "Year","Proportional", "cohort.10y","Cohort"))
-Stabilisation <- spread(Stabilisation, as.numeric(Year), as.numeric(Proportional))
-
-cohort.10y <- as.numeric(unique(sort(as.character(Stabilisation$cohort.10y))))
-
-for (i in 1:NROW(cohort.10y)){
-  cohorts <- cohort.10y[i]:(cohort.10y[i]+9)
-  Cohort <- cohort.10y[i]
-  x <- Stabilisation[Stabilisation$Cohort==cohorts[10],]
-  x <- as.data.frame(x[,c(as.character(Cohort:end_year))])
-  Correlation_x <- data.frame(cor(x, method = c("pearson")))
-  Correlation_x <- dplyr::select(Correlation_x,paste("X",end_year,sep=""))
-  Correlation_x$Year <- rownames(Correlation_x)
-  Correlation_x$Cohort <- as.numeric(cohorts[1])
-  assign(paste("Correlation_",cohorts[1],sep=""),Correlation_x)
-}
-
-cohorts_data <- as.data.frame(cohort.10y)
-
-for(i in 1:NROW(cohort.10y)){
-  cohort <- cohort.10y[i]
-  cohorts_data$correlation_data[i] <- paste("Correlation_",cohort,sep="")
-}
-
-#Combine all of the above datasets
-Elm_Correlations <- rbind(mget(cohorts_data$correlation_data)) #puts all together in a list
-
-Elm_Correlations<- bind_rows(Elm_Correlations) #puts all together in a df
-
-rm(list = ls()[grepl("Correlation_", ls())]) #remove all individual year objects
-
-Elm_Correlations$Relative_Year <- as.numeric(Elm_Correlations$Year)-Elm_Correlations$Cohort
-Elm_Correlations$Relative_Final_Year <- end_year-as.numeric(Elm_Correlations$Year)
-
-Elm_Correlations$Final_Year <- end_year
-Stabilisation_Year <- round(Elm_Correlations$Final_Year[1]-(2*mean(na.omit(gen_time_elm$parentaggeatbirth))),0)# 64 as this is the duration of 2 generations
-
-Elm_Correlations <- rename(Elm_Correlations,Correlation=paste("X",end_year,sep=""))
-
-Elm_Correlations$Correlation <- as.numeric(Elm_Correlations$Correlation)
-
-Elm_Correlations_Stabilised <- Elm_Correlations[Elm_Correlations$Year==Stabilisation_Year,]
-
-Elm_Correlations_Stabilised$`Stabilised.95` <- Elm_Correlations_Stabilised$Correlation>=0.95
-Elm_Correlations_Stabilised$`Stabilised.99` <- Elm_Correlations_Stabilised$Correlation>=0.99
-
-write.csv(Elm_Correlations_Stabilised, "Elm_Correlations_Stabilised.csv")
-
-```
-
-Table showing the extent of correlation in proportional genetic contributions for 10-year birth cohorts between the years 1927 and 1991 for Elm.
-
-##### Visually 
-
-We can also look at the correlations between each year and the final year for all years to see how this changes over time.
-
-```{r fig.show="hold", out.width="25%"}
-
-# for(i in 1:length(cohort.10y)) {
-#   
-#   #Plot every year separately
-#   years.to.plot <- as.numeric(cohort.10y[i])
-#   
-#   data <- Elm_Correlations[Elm_Correlations$Cohort %in% years.to.plot,]
-#   
-#   print(ggplot(data, aes(x=as.numeric(Year), y=Correlation, group=Cohort)) +
-#           geom_line(aes(color=Cohort))+
-#           geom_point(aes(color=Cohort))+
-#           geom_hline(yintercept=0.95, linetype="dashed", color = "black")+
-#           geom_vline(xintercept=Stabilisation_Year, linetype="dashed", color = "black") +
-#           ylim(c(0,1)) +
-#           theme_bw() +
-#           labs(y= "Correlation in expected genetic contribution", x = "Year"))
-# }
-
-#Plot all years together
-start <- 1
-end <- 10
-
-years.to.plot <- as.numeric(cohort.10y[start:end])
-
-data <- Elm_Correlations[Elm_Correlations$Cohort %in% years.to.plot,]
-#
-# pdf(file="Elm_female_correlation_plot_1600s.pdf",width = 12, height = 7.5)
-
-p1 <- ggplot(data, aes(x=as.numeric(Year), y=Correlation, group=as.factor(Cohort))) +
-  geom_line(aes(color=as.factor(Cohort)))+
-  geom_point(aes(color=as.factor(Cohort)))+
-  geom_hline(yintercept=0.95, linetype="dashed", color = "black")+
-  geom_vline(xintercept=Stabilisation_Year, linetype="dashed", color = "black") +
-  theme_bw() +
-  ylim(c(0,1)) +
-  labs(y= "Correlation in expected genetic contribution", x = "Year")
-
-#Plot all years together
-start <- 11
-end <- 20
-
-years.to.plot <- as.numeric(cohort.10y[start:end])
-
-data <- Elm_Correlations[Elm_Correlations$Cohort %in% years.to.plot,]
-#
-# pdf(file="Elm_female_correlation_plot.pdf",width = 12, height = 7.5)
-# pdf(file="Elm_female_correlation_plot_1700s.pdf",width = 12, height = 7.5)
-
-p2 <- ggplot(data, aes(x=as.numeric(Year), y=Correlation, group=as.factor(Cohort))) +
-  geom_line(aes(color=as.factor(Cohort)))+
-  geom_point(aes(color=as.factor(Cohort)))+
-  geom_hline(yintercept=0.95, linetype="dashed", color = "black")+
-  geom_vline(xintercept=Stabilisation_Year, linetype="dashed", color = "black") +
-  theme_bw() +
-  ylim(c(0,1)) +
-  labs(y= "Correlation in expected genetic contribution", x = "Year")
-
-#Plot all years together
-start <- 21
-end <- 30
-
-years.to.plot <- as.numeric(cohort.10y[start:end])
-
-data <- Elm_Correlations[Elm_Correlations$Cohort %in% years.to.plot,]
-#
-# pdf(file="Elm_female_correlation_plot.pdf",width = 12, height = 7.5)
-
-# pdf(file="Elm_female_correlation_plot_1800s.pdf",width = 12, height = 7.5)
-
-p3 <- ggplot(data, aes(x=as.numeric(Year), y=Correlation, group=as.factor(Cohort))) +
-  geom_line(aes(color=as.factor(Cohort)))+
-  geom_point(aes(color=as.factor(Cohort)))+
-  geom_hline(yintercept=0.95, linetype="dashed", color = "black")+
-  geom_vline(xintercept=Stabilisation_Year, linetype="dashed", color = "black") +
-  theme_bw() +
-  ylim(c(0,1)) +
-  labs(y= "Correlation in expected genetic contribution", x = "Year")
-
-
-
-#Plot all years together
-start <- 31
-end <- 42
-
-years.to.plot <- as.numeric(cohort.10y[start:end])
-
-data <- Elm_Correlations[Elm_Correlations$Cohort %in% years.to.plot,]
-#
-# pdf(file="Elm_female_correlation_plot.pdf",width = 12, height = 7.5)
-
-# pdf(file="Elm_female_correlation_plot_1900s.pdf",width = 12, height = 7.5)
-
-p4 <- ggplot(data, aes(x=as.numeric(Year), y=Correlation, group=as.factor(Cohort))) +
-  geom_line(aes(color=as.factor(Cohort)))+
-  geom_point(aes(color=as.factor(Cohort)))+
-  geom_hline(yintercept=0.95, linetype="dashed", color = "black")+
-  geom_vline(xintercept=Stabilisation_Year, linetype="dashed", color = "black") +
-  theme_bw() +
-  ylim(c(0,1)) +
-  labs(y= "Correlation in expected genetic contribution", x = "Year")
-
-
-print(p1)
-print(p2)
-print(p3)
-print(p4)
-
-```
-
-#### Subset of those chosen for analysis
-
-```{r}
-
-1990-mean(na.omit(gen_time_elm$parentaggeatbirth))*8
-
-# Therefore include only the cohorts before 1734
-
-#Plot all years together
-start <- 1
-end <- 16
-
-years.to.plot <- as.numeric(cohort.10y[start:end])
-
-data <- Elm_Correlations[Elm_Correlations$Cohort %in% years.to.plot,]
-
-data$Cohort <- as.factor(paste(data$Cohort,data$Cohort+9,sep = "-"))
-
-#
-# pdf(file="Elm_female_correlation_plot_1600s.pdf",width = 12, height = 7.5)
-
-library(gcookbook)  # Load gcookbook for the uspopage data set
-
-SF1b <- ggplot(data, aes(x=as.numeric(Year), y=Correlation, group=Cohort)) +
-  geom_line(aes(color=Cohort))+
-  geom_point(aes(color=Cohort))+
-  scale_color_viridis_d()  +
-  geom_hline(yintercept=0.95, linetype="dashed", color = "black")+
-  geom_vline(xintercept=Stabilisation_Year, linetype="dashed", color = "black") +
-  theme_bw() +
-  ylim(c(0,1)) +
-  labs(y= "", x = "Year")
-SF1b
-```
-All above threshold of 0.95 by 1927
-
-#### Proportional genetic contributions overtime
-
-```{r}
-Elm_Male_GeneticContributions_20210812 <- read.csv("Elm_Male_GeneticContributions_20210812.csv")
-Elm_Female_GeneticContributions_20210812 <- read.csv("Elm_Female_GeneticContributions_20210812.csv")
-
-Elm_Male_GeneticContributions_20210812$Sex <- "Male"
-Elm_Female_GeneticContributions_20210812$Sex <- "Female"
-
-Elm_GeneticContributions_20210812 <- rbind(Elm_Male_GeneticContributions_20210812,Elm_Female_GeneticContributions_20210812)
-
-## recalculate total.genetic for both sexes
-Elm_GeneticContributions_20210812 <- dplyr::select(Elm_GeneticContributions_20210812,-Total_Genetic)
-
-start_year<- min(Elm_GeneticContributions_20210812$Year)
-end_year <- min(c(max(Elm_GeneticContributions_20210812$Year[Elm_GeneticContributions_20210812$Sex=="Male"]),max(Elm_GeneticContributions_20210812$Year[Elm_GeneticContributions_20210812$Sex=="Female"])))
-
-Year<- start_year:end_year
-All_Alive_BS <- as.data.frame(Year)
-
-All_Alive_BS$Total_Genetic <- "NA"
-
-for(i in 1:length(Year)){ ### For each year after focal year
-    year<- Year[i] ### get year (starting at the focal year)
-    All_Alive_BS$Total_Genetic[i]<-length(with(data_elm_uni,IDp[which(arryear<(year+1) & depyear>(year-1))]))  ### get list of all individuals alive that year
-}
-
-Elm_GeneticContributions_20210812 <- left_join(Elm_GeneticContributions_20210812,All_Alive_BS,by="Year")
-
-# Recalculate proportional
-Elm_GeneticContributions_20210812$Proportional <- as.numeric(Elm_GeneticContributions_20210812$Contribution)/as.numeric(Elm_GeneticContributions_20210812$Total_Genetic)
-
-# Add 10-year cohorts
-start_year<- min(Elm_GeneticContributions_20210812$Year)
-end_year <- min(c(max(Elm_GeneticContributions_20210812$Year[Elm_GeneticContributions_20210812$Sex=="Male"]),max(Elm_GeneticContributions_20210812$Year[Elm_GeneticContributions_20210812$Sex=="Female"])))
-
-Elm_GeneticContributions_20210812$cohort.10y <- 
-  cut(Elm_GeneticContributions_20210812$Cohort, c(seq(start_year-1,max(Elm_GeneticContributions_20210812$Year),10)), labels = seq(start_year,max(Elm_GeneticContributions_20210812$Year)-6,10))
-
-Elm_GeneticContributions_10y.cohort <- Elm_GeneticContributions_20210812
-
-Elm_GeneticContributions_10y.cohort$cohort.10y <- as.factor(paste(Elm_GeneticContributions_10y.cohort$cohort.10y, as.numeric(as.character(Elm_GeneticContributions_10y.cohort$cohort.10y))+9,sep = "-"))
-
-Elm_GeneticContributions_10y.cohort <- Elm_GeneticContributions_10y.cohort %>% 
-  group_by(cohort.10y,Year) %>% 
-  summarise(Proportional.cohort=sum(Proportional))
-
-#Plot all years together
-start <- 1
-end <- 16
-
-years.to.plot <- as.character(unique(Elm_GeneticContributions_10y.cohort$cohort.10y)[start:end])
-years.to.plot 
-
-Elm_GeneticContributions_10y.cohort <- Elm_GeneticContributions_10y.cohort[Elm_GeneticContributions_10y.cohort$cohort.10y %in% years.to.plot,]
-
-Elm_GeneticContributions_10y.cohort$Cohort <- Elm_GeneticContributions_10y.cohort$cohort.10y
-
-SF2b <- 
-  ggplot(Elm_GeneticContributions_10y.cohort, aes(x=as.numeric(Year), y=Proportional.cohort, group=Cohort)) +
-  geom_line(aes(color=Cohort))+
-  geom_point(aes(color=Cohort))+
-  scale_color_viridis_d()  +
-  theme_bw() +
-  xlim(c(1600,1990)) +
-  ylim(c(0,0.6)) +
-  labs(y= "", x = "Year")
-SF2b
-```
-
-#### Mean deviation
-
-We can also look at the mean deviation overtime to showing stabilisation 
-
-
-```{r fig.show="hold", out.width="25%"}
-
-tempsubset <- subset(Elm_GeneticContributions_20210812, select = c("ID", "Year", "Relative_Year", "Proportional", "cohort.10y","Cohort"))
-tempsubset$Relative_Year <- as.numeric(gsub("A","",tempsubset$Relative_Year))
-
-Stabilisation <- subset(tempsubset, select = c("ID", "Year","Proportional", "cohort.10y","Cohort"))
-Stabilisation$cohort.10y <- as.factor(Stabilisation$cohort.10y)
-
-Elm_cohort10y_GeneticContributions <-Stabilisation %>% 
-  group_by(cohort.10y,Year) %>% 
-  summarise(Prop.cohort.tot=sum(Proportional))
-
-
-cohort.10y <- as.character(unique(sort(Elm_cohort10y_GeneticContributions$cohort.10y)))
-
-for (i in 1:length(cohort.10y)) {
-  cohort <- as.numeric(cohort.10y[i])
-  x <- Elm_cohort10y_GeneticContributions[Elm_cohort10y_GeneticContributions$cohort.10y==cohort,]
-  x$absolute_deviation <- NA
- for(j in 1:(nrow(x)-1)) {
-    x$absolute_deviation[j+1] <- abs(x$Prop.cohort.tot[j+1]-x$Prop.cohort.tot[j])
- } 
-  assign(paste("Mean_deviation_",cohort[1],sep=""),x)
-
-}
-
-cohorts_data <- as.data.frame(cohort.10y)
-
-for(i in 1:length(cohort.10y)){
-  cohort <- cohort.10y[i]
-  cohorts_data$Mean_deviation_data[i] <- paste("Mean_deviation_",cohort,sep="")
-}
-
-
-#Combine all of the above datasets
-Elm_Mean_deviation <- rbind(mget(cohorts_data$Mean_deviation_data)) #puts all together in a list
-
-Elm_Mean_deviation<- bind_rows(Elm_Mean_deviation) #puts all together in a df
-
-# separately
-for(i in 3:length(cohort.10y)) {
-  cohort <-as.numeric(cohort.10y[i])
-  data <- Elm_Mean_deviation[Elm_Mean_deviation$cohort.10y==cohort,]
-plot <- ggplot(data) +
-  geom_point(aes(x=Year, y=absolute_deviation))+
-  geom_line(aes(x=Year, y=absolute_deviation))+
-  theme_bw() +
-  labs(y= paste(cohort,"cohort absolute deviation",sep = " "), x = "Year")+
-  ylim(c(0,0.03))
-
-print(plot)
-
-}
-
-```
-
-```{r}
-
-
-cohort <-as.numeric(cohort.10y[3:16])
-  data <- Elm_Mean_deviation[Elm_Mean_deviation$cohort.10y==cohort,]
-plot <- ggplot(data) +
-  geom_point(aes(x=Year, y=absolute_deviation))+
-  geom_line(aes(x=Year, y=absolute_deviation))+
-  theme_bw() +
-  labs(y= paste(cohort,"cohort absolute deviation",sep = " "), x = "Year")+
-  ylim(c(0,0.03))
-
-print(plot)
-
-#Plot all years together
-start <- 1
-end <- 16
-
-years.to.plot <- as.numeric(cohort.10y[start:end])
-
-data <- Elm_Mean_deviation[Elm_Mean_deviation$cohort.10y %in% years.to.plot,]
-#
-# pdf(file="Elm_female_correlation_plot_1600s.pdf",width = 12, height = 7.5)
-
-ggplot(data, aes(x=as.numeric(Year), y=absolute_deviation, group=as.factor(cohort.10y))) +
-  geom_line(aes(color=as.factor(cohort.10y)))+
-  geom_point(aes(color=as.factor(cohort.10y)))+
-  geom_hline(yintercept=0.95, linetype="dashed", color = "black")+
-  geom_vline(xintercept=Stabilisation_Year, linetype="dashed", color = "black") +
-  theme_bw() +
-  ylim(c(0,0.1))
-  labs(y= "Correlation in expected genetic contribution", x = "Year")
-
-```
-
-#### Proportional expected genetic proportion over time
-
-```{r fig.show="hold", out.width="25%"}
-
-tempsubset <- subset(Elm_GeneticContributions_20210812, select = c("ID", "Year", "Relative_Year", "Proportional", "cohort.10y","Cohort"))
-tempsubset$Relative_Year <- as.numeric(gsub("A","",tempsubset$Relative_Year))
-
-Stabilisation <- subset(tempsubset, select = c("ID", "Year","Proportional", "cohort.10y","Cohort"))
-Stabilisation$cohort.10y <- as.factor(Stabilisation$cohort.10y)
-
-for(i in 3:length(cohort.10y)) {
-  cohort <-as.numeric(cohort.10y[i])
-  data <- Stabilisation[Stabilisation$cohort.10y==cohort,]
-  
-  if(cohort==cohort.10y[3]){
-  plot <- ggplot(data, aes(x=as.numeric(Year), y=Proportional, group=as.factor(ID))) +
-  geom_line(aes(color=as.factor(ID)),alpha=0.5,size=0.5)+
-  theme_bw() +
-  ylim(c(0,.03)) +
-  labs(y= paste(paste("Proportional genetic contribution for the " ,cohort), " 10-birth cohort"), x = paste("Years, for cohort",cohort,sep=" ")) +
-  theme(legend.position = "none")
-  
-print(plot)  
-    
-  }
-  else{
-plot <- ggplot(data, aes(x=as.numeric(Year), y=Proportional, group=as.factor(ID))) +
-  geom_line(aes(color=as.factor(ID)),alpha=0.5,size=0.5)+
-  theme_bw() +
-  # ylim(c(0,.07)) +
-  labs(y= paste(paste("Proportional genetic contribution for the " ,cohort), " 10-birth cohort"), x = paste("Years, for cohort",cohort,sep=" ")) +
-  theme(legend.position = "none")
-  
-print(plot)
-}
-}
-
-```
-
-### Linthal
-
-#### Data preperation
-
-Going from the output of the cluster run to the dataset for generating the plots. this needs sorting.
-
-```{r fig.show="hold", out.width="10%"}
-
-Lin_Female_All_Alive_GenCon_20210812 <- readRDS(file = "Lin_Female_All_Alive_GenCon_20210812.rds")
-Lin_Female_Cohort_GenCon_20210812 <- readRDS(file = "Lin_Female_Cohort_GenCon_20210812.rds")
-Lin_Female_Ind_GenCon_20210812 <- readRDS(file = "Lin_Female_Ind_GenCon_20210812.rds")
-
-# Count number of indiviudals born/arrrived in each year
-arrival_count <- t(Lin_Female_Cohort_GenCon_20210812[1,]) # number of individuals "arriving" each year
-start_year <- as.numeric(gsub("Y","",colnames(Lin_Female_All_Alive_GenCon_20210812)[1]))
-end_year <- as.numeric(gsub("Y","",colnames(Lin_Female_All_Alive_GenCon_20210812)[ncol(Lin_Female_All_Alive_GenCon_20210812)]))
-rownames(arrival_count) <- start_year:end_year
-
-arrival_count <- as.data.frame(arrival_count) 
-arrival_count$year <- rownames(arrival_count)
-years.data <- as.data.frame(arrival_count[!is.na(arrival_count$`1`) & arrival_count$`1`>0,])
-
-# Individual genetic contributions ----------------------------------------
-
-colnames(Lin_Female_All_Alive_GenCon_20210812) <- as.numeric(gsub("Y","",colnames(Lin_Female_All_Alive_GenCon_20210812)))
-
-#Flips the data-set from wide to long
-All_Alive_Contributions_20210812 <- gather(Lin_Female_All_Alive_GenCon_20210812[1,]) 
-colnames(All_Alive_Contributions_20210812)<- c("Year", "Total_Genetic")
-All_Alive_Contributions_20210812 <- as.data.frame(All_Alive_Contributions_20210812)
-All_Alive_Contributions_20210812$Year <- as.numeric(All_Alive_Contributions_20210812$Year)
-
-#Extract information about each individual born in the first year, and their genetic contributions to each year after 
-#their birth. Then do this for each cohort in the dataset. Saving each as a new data frame
-
-# This is a bit tricky in the stitched together data. for the Year argument you must set it to:
-# as.numeric(year):(as.numeric(year)+([length of ind_gen_con df for that set of years]-1))
-
-for(i in 1:nrow(years.data)) {
-  year <- years.data[i,2]
-  if(year<1621) {
-    x <- data.frame(Lin_Female_Ind_GenCon_20210812[[paste("Y",year,sep = "")]])
-    x$ID <- rownames(x)
-    x <- reshape2::melt(x, id=c("ID"))
-    x$Cohort <- as.numeric(year)
-    x <- x[order(x$ID, x$variable),] 
-    x$Year <- as.numeric(year):(as.numeric(year)+(ncol(Lin_Female_Cohort_GenCon_20210812)-1))
-    assign(paste("Lin_Female_Genetic_Contributions_",year,sep=""),x) 
-  }
-  else{if(year<1732) {
-    x <- data.frame(Lin_Female_Ind_GenCon_20210812[[paste("Y",year,sep = "")]])
-    x$ID <- rownames(x)
-    x <- reshape2::melt(x, id=c("ID"))
-    x$Cohort <- as.numeric(year)
-    x <- x[order(x$ID, x$variable),] 
-    x$Year <- as.numeric(year):(as.numeric(year)+(373-1))
-    assign(paste("Lin_Female_Genetic_Contributions_",year,sep=""),x) 
-  }
-    else{
-    x <- data.frame(Lin_Female_Ind_GenCon_20210812[[paste("Y",year,sep = "")]])
-    x$ID <- rownames(x)
-    x <- reshape2::melt(x, id=c("ID"))
-    x$Cohort <- as.numeric(year)
-    x <- x[order(x$ID, x$variable),] 
-    x$Year <- as.numeric(year):(as.numeric(year)+(262-1))
-    assign(paste("Lin_Female_Genetic_Contributions_",year,sep=""),x) 
-    }
-  }
-}
-
-for(i in 1:nrow(years.data)) { # gathers the names of these datasets in prep for gethering them all into one file
-  year <- years.data[i,2]
-  years.data$data[i] <- paste("Lin_Female_Genetic_Contributions_",year,sep="")
-} 
-
-#Combine all of the above datasets
-Lin_Female_GeneticContributions_20210812 <- rbind(mget(years.data$data)) #puts all together in a list
-
-Lin_Female_GeneticContributions_20210812 <- bind_rows(Lin_Female_GeneticContributions_20210812) #puts all together in a df
-
-rm(list = ls()[grepl("Lin_Female_Genetic_Contributions_", ls())]) #remove all individual year objects
-
-Lin_Female_GeneticContributions_20210812 <- Lin_Female_GeneticContributions_20210812[!Lin_Female_GeneticContributions_20210812$Year>end_year,] #remove all irrelevant years
-
-colnames(Lin_Female_GeneticContributions_20210812)<- c("ID", "Relative_Year", "Contribution", "Cohort", "Year")
-
-Lin_Female_GeneticContributions_20210812$Contribution <- as.numeric(Lin_Female_GeneticContributions_20210812$Contribution)
-
-Lin_Female_GeneticContributions_20210812[is.na(Lin_Female_GeneticContributions_20210812)] <- 0
-
-Lin_Female_GeneticContributions_20210812$Total_Genetic <- lapply(Lin_Female_GeneticContributions_20210812$Year, function(x) All_Alive_Contributions_20210812[match(x, All_Alive_Contributions_20210812$Year), "Total_Genetic"])
-
-Lin_Female_GeneticContributions_20210812$Total_Genetic <- as.numeric(Lin_Female_GeneticContributions_20210812$Total_Genetic)
-Lin_Female_GeneticContributions_20210812$Proportional <- as.numeric(Lin_Female_GeneticContributions_20210812$Contribution/Lin_Female_GeneticContributions_20210812$Total_Genetic)
-
-Lin_Female_GeneticContributions_20210812[is.na(Lin_Female_GeneticContributions_20210812)] <- 0
-write.csv(Lin_Female_GeneticContributions_20210812,"Lin_Female_GeneticContributions_20210812.csv")
-```
-
-
-```{r }
-Lin_Male_All_Alive_GenCon_20210812 <- readRDS(file = "Lin_Male_All_Alive_GenCon_20210812.rds")
-Lin_Male_Cohort_GenCon_20210812 <- readRDS(file = "Lin_Male_Cohort_GenCon_20210812.rds")
-Lin_Male_Ind_GenCon_20210812 <- readRDS(file = "Lin_Male_Ind_GenCon_20210812.rds")
-
-# Count number of indiviudals born/arrrived in each year
-arrival_count <- t(Lin_Male_Cohort_GenCon_20210812[1,]) # number of individuals "arriving" each year
-start_year <- as.numeric(gsub("Y","",colnames(Lin_Male_All_Alive_GenCon_20210812)[1]))
-end_year <- as.numeric(gsub("Y","",colnames(Lin_Male_All_Alive_GenCon_20210812)[ncol(Lin_Male_All_Alive_GenCon_20210812)]))
-rownames(arrival_count) <- start_year:end_year
-
-arrival_count <- as.data.frame(arrival_count) 
-arrival_count$year <- rownames(arrival_count)
-years.data <- as.data.frame(arrival_count[!is.na(arrival_count$`1`) & arrival_count$`1`>0,])
-
-# Individual genetic contributions ----------------------------------------
-
-colnames(Lin_Male_All_Alive_GenCon_20210812) <- as.numeric(gsub("Y","",colnames(Lin_Male_All_Alive_GenCon_20210812)))
-
-#Flips the data-set from wide to long
-All_Alive_Contributions_20210812 <- gather(Lin_Male_All_Alive_GenCon_20210812[1,]) 
-colnames(All_Alive_Contributions_20210812)<- c("Year", "Total_Genetic")
-All_Alive_Contributions_20210812 <- as.data.frame(All_Alive_Contributions_20210812)
-All_Alive_Contributions_20210812$Year <- as.numeric(All_Alive_Contributions_20210812$Year)
-
-#Extract information about each individual born in the first year, and their genetic contributions to each year after 
-#their birth. Then do this for each cohort in the dataset. Saving each as a new data frame
-
-# This is a bit tricky in the stitched together data. for the Year argument you must set it to:
-# as.numeric(year):(as.numeric(year)+([length of ind_gen_con df for that set of years]-1))
-
-for(i in 1:nrow(years.data)) {
-  year <- years.data[i,2]
-  if(year<1637) {
-    x <- data.frame(Lin_Male_Ind_GenCon_20210812[[paste("Y",year,sep = "")]])
-    x$ID <- rownames(x)
-    x <- reshape2::melt(x, id=c("ID"))
-    x$Cohort <- as.numeric(year)
-    x <- x[order(x$ID, x$variable),] 
-    x$Year <- as.numeric(year):(as.numeric(year)+(ncol(Lin_Male_Cohort_GenCon_20210812)-1))
-    assign(paste("Lin_Male_Genetic_Contributions_",year,sep=""),x) 
-  }
-  else{if(year<1790) {
-    x <- data.frame(Lin_Male_Ind_GenCon_20210812[[paste("Y",year,sep = "")]])
-    x$ID <- rownames(x)
-    x <- reshape2::melt(x, id=c("ID"))
-    x$Cohort <- as.numeric(year)
-    x <- x[order(x$ID, x$variable),] 
-    x$Year <- as.numeric(year):(as.numeric(year)+(354-1))
-    assign(paste("Lin_Male_Genetic_Contributions_",year,sep=""),x) 
-  }
-  else{if(year<1845) {
-    x <- data.frame(Lin_Male_Ind_GenCon_20210812[[paste("Y",year,sep = "")]])
-    x$ID <- rownames(x)
-    x <- reshape2::melt(x, id=c("ID"))
-    x$Cohort <- as.numeric(year)
-    x <- x[order(x$ID, x$variable),] 
-    x$Year <- as.numeric(year):(as.numeric(year)+(201-1))
-    assign(paste("Lin_Male_Genetic_Contributions_",year,sep=""),x) 
-  }
-    else{
-    x <- data.frame(Lin_Male_Ind_GenCon_20210812[[paste("Y",year,sep = "")]])
-    x$ID <- rownames(x)
-    x <- reshape2::melt(x, id=c("ID"))
-    x$Cohort <- as.numeric(year)
-    x <- x[order(x$ID, x$variable),] 
-    x$Year <- as.numeric(year):(as.numeric(year)+(147-1))
-    assign(paste("Lin_Male_Genetic_Contributions_",year,sep=""),x) 
-    }
-  }
-  }
-}
-
-for(i in 1:nrow(years.data)) { # gathers the names of these datasets in prep for gethering them all into one file
-  year <- years.data[i,2]
-  years.data$data[i] <- paste("Lin_Male_Genetic_Contributions_",year,sep="")
-} 
-
-#Combine all of the above datasets
-Lin_Male_GeneticContributions_20210812 <- rbind(mget(years.data$data)) #puts all together in a list
-
-Lin_Male_GeneticContributions_20210812 <- bind_rows(Lin_Male_GeneticContributions_20210812) #puts all together in a df
-
-rm(list = ls()[grepl("Lin_Male_Genetic_Contributions_", ls())]) #remove all individual year objects
-
-Lin_Male_GeneticContributions_20210812 <- Lin_Male_GeneticContributions_20210812[!Lin_Male_GeneticContributions_20210812$Year>end_year,] #remove all irrelevant years
-
-colnames(Lin_Male_GeneticContributions_20210812)<- c("ID", "Relative_Year", "Contribution", "Cohort", "Year")
-
-Lin_Male_GeneticContributions_20210812$Contribution <- as.numeric(Lin_Male_GeneticContributions_20210812$Contribution)
-
-Lin_Male_GeneticContributions_20210812[is.na(Lin_Male_GeneticContributions_20210812)] <- 0
-
-Lin_Male_GeneticContributions_20210812$Total_Genetic <- lapply(Lin_Male_GeneticContributions_20210812$Year, function(x) All_Alive_Contributions_20210812[match(x, All_Alive_Contributions_20210812$Year), "Total_Genetic"])
-
-Lin_Male_GeneticContributions_20210812$Total_Genetic <- as.numeric(Lin_Male_GeneticContributions_20210812$Total_Genetic)
-Lin_Male_GeneticContributions_20210812$Proportional <- as.numeric(Lin_Male_GeneticContributions_20210812$Contribution/Lin_Male_GeneticContributions_20210812$Total_Genetic)
-
-Lin_Male_GeneticContributions_20210812[is.na(Lin_Male_GeneticContributions_20210812)] <- 0
-
-write.csv(Lin_Male_GeneticContributions_20210812,"Lin_Male_GeneticContributions_20210812.csv")
-
-```
-
-#### Correlation Plots
-
-```{r}
-Lin_Male_GeneticContributions_20210812 <- read.csv("Lin_Male_GeneticContributions_20210812.csv")
-Lin_Female_GeneticContributions_20210812 <- read.csv("Lin_Female_GeneticContributions_20210812.csv")
-
-Lin_Male_GeneticContributions_20210812$Sex <- "Male"
-Lin_Female_GeneticContributions_20210812$Sex <- "Female"
-
-Lin_GeneticContributions_20210812 <- rbind(Lin_Male_GeneticContributions_20210812,Lin_Female_GeneticContributions_20210812)
-
-## recalculate total.genetic for both sexes
-Lin_GeneticContributions_20210812 <- dplyr::select(Lin_GeneticContributions_20210812,-Total_Genetic)
-
-start_year<- min(Lin_GeneticContributions_20210812$Year)
-end_year <- min(c(max(Lin_GeneticContributions_20210812$Year[Lin_GeneticContributions_20210812$Sex=="Male"]),max(Lin_GeneticContributions_20210812$Year[Lin_GeneticContributions_20210812$Sex=="Female"])))
-
-Year<- start_year:end_year
-All_Alive_BS <- as.data.frame(Year)
-
-All_Alive_BS$Total_Genetic <- "NA"
-
-for(i in 1:length(Year)){ ### For each year after focal year
-    year<- Year[i] ### get year (starting at the focal year)
-    All_Alive_BS$Total_Genetic[i]<-length(with(data_lin_uni,IDp[which(arryear<(year+1) & depyear>(year-1))]))  ### get list of all individuals alive that year
-}
-
-Lin_GeneticContributions_20210812 <- left_join(Lin_GeneticContributions_20210812,All_Alive_BS,by="Year")
-
-# Recalculate proportional
-Lin_GeneticContributions_20210812$Proportional <- as.numeric(Lin_GeneticContributions_20210812$Contribution)/as.numeric(Lin_GeneticContributions_20210812$Total_Genetic)
-
-```
-
-```{r fig.show="hold", out.width="25%"}
-summary(Lin_Female_GeneticContributions_20210812) # this datafile is a tidied dataframe containing the genetic contributions (both proportional and absolute) of all individuals, for all years.
-
-# Add 10-year cohorts
-start_year<- min(Lin_GeneticContributions_20210812$Year)
-end_year <- min(c(max(Lin_GeneticContributions_20210812$Year[Lin_GeneticContributions_20210812$Sex=="Male"]),max(Lin_GeneticContributions_20210812$Year[Lin_GeneticContributions_20210812$Sex=="Female"])))
-
-Lin_GeneticContributions_20210812$cohort.10y <- 
-  cut(Lin_GeneticContributions_20210812$Cohort, c(seq(start_year-1,max(Lin_GeneticContributions_20210812$Year),10)), labels = seq(start_year,max(Lin_GeneticContributions_20210812$Year)-6,10))
-
-tempsubset <- subset(Lin_GeneticContributions_20210812, select = c("ID", "Year", "Relative_Year", "Proportional", "cohort.10y","Cohort"))
-tempsubset$Relative_Year <- as.numeric(gsub("A","",tempsubset$Relative_Year))
-
-# Estimate correlations
-#Subset and make data wide again 
-Stabilisation <- subset(tempsubset, select = c("ID", "Year","Proportional", "cohort.10y","Cohort"))
-Stabilisation <- spread(Stabilisation, as.numeric(Year), as.numeric(Proportional))
-
-cohort.10y <- as.numeric(unique(sort(as.character(Stabilisation$cohort.10y))))
-
-for (i in 1:NROW(cohort.10y)){
-  cohorts <- cohort.10y[i]:(cohort.10y[i]+9)
-  Cohort <- cohort.10y[i]
-  x <- Stabilisation[Stabilisation$Cohort==cohorts[10],]
-  x <- as.data.frame(x[,c(as.character(Cohort:end_year))])
-  Correlation_x <- data.frame(cor(x, method = c("pearson")))
-  Correlation_x <- dplyr::select(Correlation_x,paste("X",end_year,sep=""))
-  Correlation_x$Year <- rownames(Correlation_x)
-  Correlation_x$Cohort <- as.numeric(cohorts[1])
-  assign(paste("Correlation_",cohorts[1],sep=""),Correlation_x)
-}
-
-cohorts_data <- as.data.frame(cohort.10y)
-
-for(i in 1:NROW(cohort.10y)){
-  cohort <- cohort.10y[i]
-  cohorts_data$correlation_data[i] <- paste("Correlation_",cohort,sep="")
-}
-#Combine all of the above datasets
-Lin_Correlations <- rbind(mget(cohorts_data$correlation_data)) #puts all together in a list
-
-Lin_Correlations<- bind_rows(Lin_Correlations) #puts all together in a df
-
-rm(list = ls()[grepl("Correlation_", ls())]) #remove all individual year objects
-
-Lin_Correlations$Relative_Year <- as.numeric(Lin_Correlations$Year)-Lin_Correlations$Cohort
-Lin_Correlations$Relative_Final_Year <- end_year-as.numeric(Lin_Correlations$Year)
-
-Lin_Correlations$Final_Year <- end_year
-Stabilisation_Year <- round(Lin_Correlations$Final_Year[1]-(2*mean(na.omit(gen_time_lin$parentaggeatbirth))),0)# 64 as this is the duration of 2 generations
-
-Lin_Correlations <- rename(Lin_Correlations,Correlation=paste("X",end_year,sep=""))
-
-Lin_Correlations$Correlation <- as.numeric(Lin_Correlations$Correlation)
-
-Lin_Correlations_Stabilised <- Lin_Correlations[Lin_Correlations$Year==Stabilisation_Year,]
-
-Lin_Correlations_Stabilised$`Stabilised.95` <- Lin_Correlations_Stabilised$Correlation>=0.95
-Lin_Correlations_Stabilised$`Stabilised.99` <- Lin_Correlations_Stabilised$Correlation>=0.99
-
-write.csv(Lin_Correlations_Stabilised, "Lin_Correlations_Stabilised.csv")
-```
-
-Table showing the extent of correlation in proportional genetic contributions for 10-year birth cohorts between the years 1927 and 1991 for Lin.
-
-##### Visually 
-
-We can also look at the correlations between each year and the final year for all years to see how this changes over time.
-
-```{r fig.show="hold", out.width="25%"}
-
-# for(i in 1:length(cohort.10y)) {
-#   
-#   #Plot every year separately
-#   years.to.plot <- as.numeric(cohort.10y[i])
-#   
-#   data <- Lin_Correlations[Lin_Correlations$Cohort %in% years.to.plot,]
-#   
-#   print(ggplot(data, aes(x=as.numeric(Year), y=Correlation, group=Cohort)) +
-#           geom_line(aes(color=Cohort))+
-#           geom_point(aes(color=Cohort))+
-#           geom_hline(yintercept=0.95, linetype="dashed", color = "black")+
-#           geom_vline(xintercept=Stabilisation_Year, linetype="dashed", color = "black") +
-#           ylim(c(0,1)) +
-#           theme_bw() +
-#           labs(y= "Correlation in expected genetic contribution", x = "Year"))
-# }
-
-#Plot all years together
-start <- 1
-end <- 10
-
-years.to.plot <- as.numeric(cohort.10y[start:end])
-
-data <- Lin_Correlations[Lin_Correlations$Cohort %in% years.to.plot,]
-#
-# pdf(file="Lin_female_correlation_plot_1600s.pdf",width = 12, height = 7.5)
-
-p1 <- ggplot(data, aes(x=as.numeric(Year), y=Correlation, group=as.factor(Cohort))) +
-  geom_line(aes(color=as.factor(Cohort)))+
-  geom_point(aes(color=as.factor(Cohort)))+
-  geom_hline(yintercept=0.95, linetype="dashed", color = "black")+
-  geom_vline(xintercept=Stabilisation_Year, linetype="dashed", color = "black") +
-  theme_bw() +
-  ylim(c(0,1)) +
-  labs(y= "Correlation in expected genetic contribution", x = "Year")
-
-#Plot all years together
-start <- 11
-end <- 20
-
-years.to.plot <- as.numeric(cohort.10y[start:end])
-
-data <- Lin_Correlations[Lin_Correlations$Cohort %in% years.to.plot,]
-#
-# pdf(file="Lin_female_correlation_plot.pdf",width = 12, height = 7.5)
-# pdf(file="Lin_female_correlation_plot_1700s.pdf",width = 12, height = 7.5)
-
-p2 <- ggplot(data, aes(x=as.numeric(Year), y=Correlation, group=as.factor(Cohort))) +
-  geom_line(aes(color=as.factor(Cohort)))+
-  geom_point(aes(color=as.factor(Cohort)))+
-  geom_hline(yintercept=0.95, linetype="dashed", color = "black")+
-  geom_vline(xintercept=Stabilisation_Year, linetype="dashed", color = "black") +
-  theme_bw() +
-  ylim(c(0,1)) +
-  labs(y= "Correlation in expected genetic contribution", x = "Year")
-
-#Plot all years together
-start <- 21
-end <- 30
-
-years.to.plot <- as.numeric(cohort.10y[start:end])
-
-data <- Lin_Correlations[Lin_Correlations$Cohort %in% years.to.plot,]
-#
-# pdf(file="Lin_female_correlation_plot.pdf",width = 12, height = 7.5)
-
-# pdf(file="Lin_female_correlation_plot_1800s.pdf",width = 12, height = 7.5)
-
-p3 <- ggplot(data, aes(x=as.numeric(Year), y=Correlation, group=as.factor(Cohort))) +
-  geom_line(aes(color=as.factor(Cohort)))+
-  geom_point(aes(color=as.factor(Cohort)))+
-  geom_hline(yintercept=0.95, linetype="dashed", color = "black")+
-  geom_vline(xintercept=Stabilisation_Year, linetype="dashed", color = "black") +
-  theme_bw() +
-  ylim(c(0,1)) +
-  labs(y= "Correlation in expected genetic contribution", x = "Year")
-
-
-
-#Plot all years together
-start <- 31
-end <- 42
-
-years.to.plot <- as.numeric(cohort.10y[start:end])
-
-data <- Lin_Correlations[Lin_Correlations$Cohort %in% years.to.plot,]
-#
-# pdf(file="Lin_female_correlation_plot.pdf",width = 12, height = 7.5)
-
-# pdf(file="Lin_female_correlation_plot_1900s.pdf",width = 12, height = 7.5)
-
-p4 <- ggplot(data, aes(x=as.numeric(Year), y=Correlation, group=as.factor(Cohort))) +
-  geom_line(aes(color=as.factor(Cohort)))+
-  geom_point(aes(color=as.factor(Cohort)))+
-  geom_hline(yintercept=0.95, linetype="dashed", color = "black")+
-  geom_vline(xintercept=Stabilisation_Year, linetype="dashed", color = "black") +
-  theme_bw() +
-  ylim(c(0,1)) +
-  labs(y= "Correlation in expected genetic contribution", x = "Year")
-
-
-print(p1)
-print(p2)
-print(p3)
-print(p4)
-
-```
-
-## Subset of those chosen for analysis
-
-```{r}
-
-1990-mean(na.omit(gen_time_lin$parentaggeatbirth))*8
-
-# Therefore include only the cohorts before 1734
-
-#Plot all years together
-start <- 1
-end <- 14
-
-years.to.plot <- as.numeric(cohort.10y[start:end])
-
-data <- Lin_Correlations[Lin_Correlations$Cohort %in% years.to.plot,]
-
-data$Cohort <- as.factor(paste(data$Cohort,data$Cohort+9,sep = "-"))
-
-#
-# pdf(file="lin_female_correlation_plot_1600s.pdf",width = 12, height = 7.5)
-
-library(gcookbook)  # Load gcookbook for the uspopage data set
-
-SF1a <- ggplot(data, aes(x=as.numeric(Year), y=Correlation, group=Cohort)) +
-  geom_line(aes(color=Cohort))+
-  geom_point(aes(color=Cohort))+
-  scale_color_viridis_d()  +
-  geom_hline(yintercept=0.95, linetype="dashed", color = "black")+
-  geom_vline(xintercept=Stabilisation_Year, linetype="dashed", color = "black") +
-  theme_bw() +
-  ylim(c(0,1)) +
-  labs(y= "", x = "Year")
-SF1a
-```
-
-All above threshold of 0.95 by 1927
-
-#### Proportional genetic contributions overtime
-
-```{r}
-Lin_Male_GeneticContributions_20210812 <- read.csv("Lin_Male_GeneticContributions_20210812.csv")
-Lin_Female_GeneticContributions_20210812 <- read.csv("Lin_Female_GeneticContributions_20210812.csv")
-
-Lin_Male_GeneticContributions_20210812$Sex <- "Male"
-Lin_Female_GeneticContributions_20210812$Sex <- "Female"
-
-Lin_GeneticContributions_20210812 <- rbind(Lin_Male_GeneticContributions_20210812,Lin_Female_GeneticContributions_20210812)
-
-## recalculate total.genetic for both sexes
-Lin_GeneticContributions_20210812 <- dplyr::select(Lin_GeneticContributions_20210812,-Total_Genetic)
-
-start_year<- min(Lin_GeneticContributions_20210812$Year)
-end_year <- min(c(max(Lin_GeneticContributions_20210812$Year[Lin_GeneticContributions_20210812$Sex=="Male"]),max(Lin_GeneticContributions_20210812$Year[Lin_GeneticContributions_20210812$Sex=="Female"])))
-
-Year<- start_year:end_year
-All_Alive_BS <- as.data.frame(Year)
-
-All_Alive_BS$Total_Genetic <- "NA"
-
-for(i in 1:length(Year)){ ### For each year after focal year
-    year<- Year[i] ### get year (starting at the focal year)
-    All_Alive_BS$Total_Genetic[i]<-length(with(data_lin_uni,IDp[which(arryear<(year+1) & depyear>(year-1))]))  ### get list of all individuals alive that year
-}
-
-Lin_GeneticContributions_20210812 <- left_join(Lin_GeneticContributions_20210812,All_Alive_BS,by="Year")
-
-# Recalculate proportional
-Lin_GeneticContributions_20210812$Proportional <- as.numeric(Lin_GeneticContributions_20210812$Contribution)/as.numeric(Lin_GeneticContributions_20210812$Total_Genetic)
-
-# Add 10-year cohorts
-start_year<- min(Lin_GeneticContributions_20210812$Year)
-end_year <- min(c(max(Lin_GeneticContributions_20210812$Year[Lin_GeneticContributions_20210812$Sex=="Male"]),max(Lin_GeneticContributions_20210812$Year[Lin_GeneticContributions_20210812$Sex=="Female"])))
-
-Lin_GeneticContributions_20210812$cohort.10y <- 
-  cut(Lin_GeneticContributions_20210812$Cohort, c(seq(start_year-1,max(Lin_GeneticContributions_20210812$Year),10)), labels = seq(start_year,max(Lin_GeneticContributions_20210812$Year)-6,10))
-
-Lin_GeneticContributions_10y.cohort <- Lin_GeneticContributions_20210812
-
-Lin_GeneticContributions_10y.cohort$cohort.10y <- as.factor(paste(Lin_GeneticContributions_10y.cohort$cohort.10y, as.numeric(as.character(Lin_GeneticContributions_10y.cohort$cohort.10y))+9,sep = "-"))
-
-Lin_GeneticContributions_10y.cohort <- Lin_GeneticContributions_10y.cohort %>% 
-  group_by(cohort.10y,Year) %>% 
-  summarise(Proportional.cohort=sum(Proportional))
-
-#Plot all years together
-start <- 1
-end <- 16
-
-years.to.plot <- as.character(unique(Lin_GeneticContributions_10y.cohort$cohort.10y)[start:end])
-
-Lin_GeneticContributions_10y.cohort <- Lin_GeneticContributions_10y.cohort[Lin_GeneticContributions_10y.cohort$cohort.10y %in% years.to.plot,]
-
-Lin_GeneticContributions_10y.cohort$Cohort <- Lin_GeneticContributions_10y.cohort$cohort.10y
-
-SF2a <- 
-  ggplot(Lin_GeneticContributions_10y.cohort, aes(x=as.numeric(Year), y=Proportional.cohort, group=Cohort)) +
-  geom_line(aes(color=Cohort))+
-  geom_point(aes(color=Cohort))+
-  scale_color_viridis_d()  +
-  theme_bw() +
-  xlim(c(1600,1990)) +
-  ylim(c(0,0.6)) +
-  labs(y= "", x = "Year")
-SF2a
-```
-
-
-#### Mean deviation
-
-We can also look at the mean deviation overtime to showing stabilisation 
-
-
-```{r fig.show="hold", out.width="25%"}
-
-tempsubset <- subset(Lin_GeneticContributions_20210812, select = c("ID", "Year", "Relative_Year", "Proportional", "cohort.10y","Cohort"))
-tempsubset$Relative_Year <- as.numeric(gsub("A","",tempsubset$Relative_Year))
-
-Stabilisation <- subset(tempsubset, select = c("ID", "Year","Proportional", "cohort.10y","Cohort"))
-Stabilisation$cohort.10y <- as.factor(Stabilisation$cohort.10y)
-
-Lin_cohort10y_GeneticContributions <-Stabilisation %>% 
-  group_by(cohort.10y,Year) %>% 
-  summarise(Prop.cohort.tot=sum(Proportional))
-
-
-cohort.10y <- as.character(unique(sort(Lin_cohort10y_GeneticContributions$cohort.10y)))
-
-for (i in 1:length(cohort.10y)) {
-  cohort <- as.numeric(cohort.10y[i])
-  x <- Lin_cohort10y_GeneticContributions[Lin_cohort10y_GeneticContributions$cohort.10y==cohort,]
-  x$absolute_deviation <- NA
- for(j in 1:(nrow(x)-1)) {
-    x$absolute_deviation[j+1] <- abs(x$Prop.cohort.tot[j+1]-x$Prop.cohort.tot[j])
- } 
-  assign(paste("Mean_deviation_",cohort[1],sep=""),x)
-
-}
-
-cohorts_data <- as.data.frame(cohort.10y)
-
-for(i in 1:length(cohort.10y)){
-  cohort <- cohort.10y[i]
-  cohorts_data$Mean_deviation_data[i] <- paste("Mean_deviation_",cohort,sep="")
-}
-
-
-#Combine all of the above datasets
-Lin_Mean_deviation <- rbind(mget(cohorts_data$Mean_deviation_data)) #puts all together in a list
-
-Lin_Mean_deviation<- bind_rows(Lin_Mean_deviation) #puts all together in a df
-
-# separately
-for(i in 3:length(cohort.10y)) {
-  cohort <-as.numeric(cohort.10y[i])
-  data <- Lin_Mean_deviation[Lin_Mean_deviation$cohort.10y==cohort,]
-plot <- ggplot(data) +
-  geom_point(aes(x=Year, y=absolute_deviation))+
-  geom_line(aes(x=Year, y=absolute_deviation))+
-  theme_bw() +
-  labs(y= paste(cohort,"cohort absolute deviation",sep = " "), x = "Year")+
-  ylim(c(0,0.03))
-
-print(plot)
-
-}
-
-```
-
-```{r}
-
-#Plot all years together
-start <- 1
-end <- 16
-
-years.to.plot <- as.numeric(cohort.10y[start:end])
-
-data <- Lin_Mean_deviation[Lin_Mean_deviation$cohort.10y %in% years.to.plot,]
-#
-# pdf(file="Lin_female_correlation_plot_1600s.pdf",width = 12, height = 7.5)
-
-ggplot(data, aes(x=as.numeric(Year), y=absolute_deviation, group=as.factor(cohort.10y))) +
-  geom_line(aes(color=as.factor(cohort.10y)))+
-  geom_point(aes(color=as.factor(cohort.10y)))+
-  geom_hline(yintercept=0.95, linetype="dashed", color = "black")+
-  geom_vline(xintercept=Stabilisation_Year, linetype="dashed", color = "black") +
-  theme_bw() +
-  ylim(c(0,0.1))
-  labs(y= "Correlation in expected genetic contribution", x = "Year")
-
-```
-
-#### Proportional expected genetic proportion over time
-
-```{r fig.show="hold", out.width="25%"}
-
-tempsubset <- subset(Lin_GeneticContributions_20210812, select = c("ID", "Year", "Relative_Year", "Proportional", "cohort.10y","Cohort"))
-tempsubset$Relative_Year <- as.numeric(gsub("A","",tempsubset$Relative_Year))
-
-Stabilisation <- subset(tempsubset, select = c("ID", "Year","Proportional", "cohort.10y","Cohort"))
-Stabilisation$cohort.10y <- as.factor(Stabilisation$cohort.10y)
-
-for(i in 3:length(cohort.10y)) {
-  cohort <-as.numeric(cohort.10y[i])
-  data <- Stabilisation[Stabilisation$cohort.10y==cohort,]
-  
-  if(cohort==cohort.10y[3]){
-  plot <- ggplot(data, aes(x=as.numeric(Year), y=Proportional, group=as.factor(ID))) +
-  geom_line(aes(color=as.factor(ID)),alpha=0.5,size=0.5)+
-  theme_bw() +
-  ylim(c(0,.03)) +
-  labs(y= paste(paste("Proportional genetic contribution for the " ,cohort), " 10-birth cohort"), x = paste("Years, for cohort",cohort,sep=" ")) +
-  theme(legend.position = "none")
-  
-print(plot)  
-    
-  }
-  else{
-plot <- ggplot(data, aes(x=as.numeric(Year), y=Proportional, group=as.factor(ID))) +
-  geom_line(aes(color=as.factor(ID)),alpha=0.5,size=0.5)+
-  theme_bw() +
-  # ylim(c(0,.07)) +
-  labs(y= paste(paste("Proportional genetic contribution for the " ,cohort), " 10-birth cohort"), x = paste("Years, for cohort",cohort,sep=" ")) +
-  theme(legend.position = "none")
-  
-print(plot)
-}
-}
-
-```
-
-### Create output
-
-```{r}
-
-Elm_GeneticContributions_20210812 <- Elm_GeneticContributions_20210812 %>% dplyr::select(-cohort.5y)
-Lin_GeneticContributions_20210812 <- Lin_GeneticContributions_20210812 %>% dplyr::select(-cohort.10y)
-
-Elm_GeneticContributions_20210812$Parish <- "Elm"
-Lin_GeneticContributions_20210812$Parish <- "Lin"
-
-Elm_rv_data <- Elm_GeneticContributions_20210812[Elm_GeneticContributions_20210812$Year==1990,]
-Lin_rv_data <- Lin_GeneticContributions_20210812[Lin_GeneticContributions_20210812$Year==1990,]
-
-rv_data <- rbind(Elm_rv_data,Lin_rv_data)
-
-write.csv(rv_data,"rv-data.csv")
-
-```
-
-### Figures
-
-```{r}
-
-
-library(ggpubr)
-
-SF1 <- ggarrange(SF1a,SF1b,
-                labels = c("a", "b"),
-                ncol = 1, nrow = 2)
-
-pdf(file = "sup-figure_01-20220111.pdf",   # The directory you want to save the file in
-    width = 10, # The width of the plot in inches
-    height = 10) # The height of the plot in inches
-
-annotate_figure(SF1,
-                left = text_grob("Correlation",rot=90,color = "black", size = 16),
-                bottom = text_grob("", color = "black", size = 16)
-)
-
-```
-
-```{r}
-
-
-library(ggpubr)
-
-SF2 <- ggarrange(SF2a,SF2b,
-                labels = c("a", "b"),
-                ncol = 1, nrow = 2)
-
-pdf(file = "sup-figure_02-20220111.pdf",   # The directory you want to save the file in
-    width = 10, # The width of the plot in inches
-    height = 10) # The height of the plot in inches
-
-annotate_figure(SF2,
-                left = text_grob("Total cohort proportional genetic contribution",rot=90,color = "black", size = 16),
-                bottom = text_grob("", color = "black", size = 16)
-)
-
-```
-
-# Genetic contributions stabilisation
-
-In this study, we examined stabilisation in line with Reid et al. (2019): (1) correlations between expected genetic contributions for each year and the final year being above 0.95 for a duration of at least 2 generations; and (2) mean deviation in annual genetic contributions decreasing to approximately zero. We examined this in each parish separately.
-
-A generation was estimated as the mean age of parents at birth and was 32.14 and 32.21 yr for Elm and Linthal, respectively. We grouped individuals into 10-year birth cohorts and examined Pearson correlation statistics between these grouped annual expected genetic contributions and the final year annual genetic contribution. These stayed above 0.95 for at least 2 generations for individuals born before 1700 in Elm, and before the year 1690 in Linthal (the difference being likely due to the larger population size of Linthal), with mean deviations <0.002 for both over this period. (A visual representation of these can be found in Supplementary Figure 1). However, despite meeting Reid et al. (2019)’s criteria for stabilisation of genetic contributions, upon visual inspection the genetic contributions do not appear to stabilise (i.e. reach a plateau over time), although the fluctuations become very small and the lines show high levels of smoothness (supplementary figure 2). We therefore conclude that we do not observe stabilisation of genetic contributions in this study.
-
-## Calculating Generation time
-
-Using the equation from Chang (1999): Time (in years) = log2(population size) x Generation time (in years)
+For this part I need to apprixmate generation time in these populations
 
 ```{r fig.show="hold", out.width="25%"}
 library(tidyverse)
@@ -3625,13 +2274,13 @@ mean(na.omit(gen_time_lin$parentaggeatbirth)) #median generation time, using med
 ```
 
 ```{r}
+library(plotrix)
 mean(na.omit(gen_time_elm$parentaggeatbirth))
-stderr()
+std.error(na.omit(gen_time_elm$parentaggeatbirth))
 mean(na.omit(gen_time_lin$parentaggeatbirth))
+std.error(na.omit(gen_time_lin$parentaggeatbirth))
 ```
-A generation was estimated as the mean age of parents at birth and was `r median(na.omit(gen_time_elm$parentaggeatbirth))` and `r median(na.omit(gen_time_lin$parentaggeatbirth))` for Elm and Linthal, respectively.
-
-## Stabilisation plots
+### Testing stabilisation
 
 ### Elm
 
@@ -3904,9 +2553,9 @@ Elm_Correlations$Correlation <- as.numeric(Elm_Correlations$Correlation)
 Elm_Correlations_Stabilised <- Elm_Correlations[Elm_Correlations$Year==Stabilisation_Year,]
 
 Elm_Correlations_Stabilised$`Stabilised.95` <- Elm_Correlations_Stabilised$Correlation>=0.95
-Elm_Correlations_Stabilised$`Stabilised.99` <- Elm_Correlations_Stabilised$Correlation>=0.99
+Elm_Correlations_Stabilised$`Stabilised.99` <- Elm_Correlations_Stabilised$Correlation>=0.9
 
-write.csv(Elm_Correlations_Stabilised, "Elm_Correlations_Stabilised.csv")
+write.csv(Elm_Correlations_Stabilised, "Elm_Correlations_Stabilised.csv") # tgives the correlation coefficients for cohorts 2 generations before final year
 
 ```
 
@@ -4044,23 +2693,53 @@ data <- Elm_Correlations[Elm_Correlations$Cohort %in% years.to.plot,]
 
 data$Cohort <- as.factor(paste(data$Cohort,data$Cohort+9,sep = "-"))
 
-#
-# pdf(file="Elm_female_correlation_plot_1600s.pdf",width = 12, height = 7.5)
-
-library(gcookbook)  # Load gcookbook for the uspopage data set
-
 SF1b <- ggplot(data, aes(x=as.numeric(Year), y=Correlation, group=Cohort)) +
   geom_line(aes(color=Cohort))+
   geom_point(aes(color=Cohort))+
   scale_color_viridis_d()  +
   geom_hline(yintercept=0.95, linetype="dashed", color = "black")+
   geom_vline(xintercept=Stabilisation_Year, linetype="dashed", color = "black") +
+  ggtitle("Elm")+
   theme_bw() +
   ylim(c(0,1)) +
   labs(y= "", x = "Year")
 SF1b
+
 ```
 All above threshold of 0.95 by 1927
+
+
+##### Plot of those removed
+
+```{r}
+
+1990-mean(na.omit(gen_time_elm$parentaggeatbirth))*8
+
+# Therefore include only the cohorts before 1734
+
+#Plot all years together
+start <- 17
+end <- 42
+
+years.to.plot <- as.numeric(cohort.10y[start:end])
+
+data <- Elm_Correlations[Elm_Correlations$Cohort %in% years.to.plot,]
+
+data$Cohort <- as.factor(paste(data$Cohort,data$Cohort+9,sep = "-"))
+
+SF1d <- ggplot(data, aes(x=as.numeric(Year), y=Correlation, group=Cohort)) +
+  geom_line(aes(color=Cohort))+
+  geom_point(aes(color=Cohort))+
+  scale_color_viridis_d()  +
+  geom_hline(yintercept=0.95, linetype="dashed", color = "black")+
+  geom_vline(xintercept=Stabilisation_Year, linetype="dashed", color = "black") +
+  ggtitle("Elm")+
+  theme_bw() +
+  ylim(c(0,1)) +
+  labs(y= "", x = "Year")
+SF1d
+
+```
 
 #### Proportional genetic contributions overtime
 
@@ -4126,109 +2805,14 @@ SF2b <-
   geom_point(aes(color=Cohort))+
   scale_color_viridis_d()  +
   theme_bw() +
+  ggtitle("Elm") +
   xlim(c(1600,1990)) +
   ylim(c(0,0.6)) +
   labs(y= "", x = "Year")
 SF2b
 ```
 
-#### Mean deviation
-
-We can also look at the mean deviation overtime to showing stabilisation 
-
-
-```{r fig.show="hold", out.width="25%"}
-
-tempsubset <- subset(Elm_GeneticContributions_20210812, select = c("ID", "Year", "Relative_Year", "Proportional", "cohort.10y","Cohort"))
-tempsubset$Relative_Year <- as.numeric(gsub("A","",tempsubset$Relative_Year))
-
-Stabilisation <- subset(tempsubset, select = c("ID", "Year","Proportional", "cohort.10y","Cohort"))
-Stabilisation$cohort.10y <- as.factor(Stabilisation$cohort.10y)
-
-Elm_cohort10y_GeneticContributions <-Stabilisation %>% 
-  group_by(cohort.10y,Year) %>% 
-  summarise(Prop.cohort.tot=sum(Proportional))
-
-
-cohort.10y <- as.character(unique(sort(Elm_cohort10y_GeneticContributions$cohort.10y)))
-
-for (i in 1:length(cohort.10y)) {
-  cohort <- as.numeric(cohort.10y[i])
-  x <- Elm_cohort10y_GeneticContributions[Elm_cohort10y_GeneticContributions$cohort.10y==cohort,]
-  x$absolute_deviation <- NA
- for(j in 1:(nrow(x)-1)) {
-    x$absolute_deviation[j+1] <- abs(x$Prop.cohort.tot[j+1]-x$Prop.cohort.tot[j])
- } 
-  assign(paste("Mean_deviation_",cohort[1],sep=""),x)
-
-}
-
-cohorts_data <- as.data.frame(cohort.10y)
-
-for(i in 1:length(cohort.10y)){
-  cohort <- cohort.10y[i]
-  cohorts_data$Mean_deviation_data[i] <- paste("Mean_deviation_",cohort,sep="")
-}
-
-
-#Combine all of the above datasets
-Elm_Mean_deviation <- rbind(mget(cohorts_data$Mean_deviation_data)) #puts all together in a list
-
-Elm_Mean_deviation<- bind_rows(Elm_Mean_deviation) #puts all together in a df
-
-# separately
-for(i in 3:length(cohort.10y)) {
-  cohort <-as.numeric(cohort.10y[i])
-  data <- Elm_Mean_deviation[Elm_Mean_deviation$cohort.10y==cohort,]
-plot <- ggplot(data) +
-  geom_point(aes(x=Year, y=absolute_deviation))+
-  geom_line(aes(x=Year, y=absolute_deviation))+
-  theme_bw() +
-  labs(y= paste(cohort,"cohort absolute deviation",sep = " "), x = "Year")+
-  ylim(c(0,0.03))
-
-print(plot)
-
-}
-
-```
-
-```{r}
-
-
-cohort <-as.numeric(cohort.10y[3:16])
-  data <- Elm_Mean_deviation[Elm_Mean_deviation$cohort.10y==cohort,]
-plot <- ggplot(data) +
-  geom_point(aes(x=Year, y=absolute_deviation))+
-  geom_line(aes(x=Year, y=absolute_deviation))+
-  theme_bw() +
-  labs(y= paste(cohort,"cohort absolute deviation",sep = " "), x = "Year")+
-  ylim(c(0,0.03))
-
-print(plot)
-
-#Plot all years together
-start <- 1
-end <- 16
-
-years.to.plot <- as.numeric(cohort.10y[start:end])
-
-data <- Elm_Mean_deviation[Elm_Mean_deviation$cohort.10y %in% years.to.plot,]
-#
-# pdf(file="Elm_female_correlation_plot_1600s.pdf",width = 12, height = 7.5)
-
-ggplot(data, aes(x=as.numeric(Year), y=absolute_deviation, group=as.factor(cohort.10y))) +
-  geom_line(aes(color=as.factor(cohort.10y)))+
-  geom_point(aes(color=as.factor(cohort.10y)))+
-  geom_hline(yintercept=0.95, linetype="dashed", color = "black")+
-  geom_vline(xintercept=Stabilisation_Year, linetype="dashed", color = "black") +
-  theme_bw() +
-  ylim(c(0,0.1))
-  labs(y= "Correlation in expected genetic contribution", x = "Year")
-
-```
-
-#### Proportional expected genetic proportion over time
+We can also look at this individually
 
 ```{r fig.show="hold", out.width="25%"}
 
@@ -4576,23 +3160,6 @@ We can also look at the correlations between each year and the final year for al
 
 ```{r fig.show="hold", out.width="25%"}
 
-# for(i in 1:length(cohort.10y)) {
-#   
-#   #Plot every year separately
-#   years.to.plot <- as.numeric(cohort.10y[i])
-#   
-#   data <- Lin_Correlations[Lin_Correlations$Cohort %in% years.to.plot,]
-#   
-#   print(ggplot(data, aes(x=as.numeric(Year), y=Correlation, group=Cohort)) +
-#           geom_line(aes(color=Cohort))+
-#           geom_point(aes(color=Cohort))+
-#           geom_hline(yintercept=0.95, linetype="dashed", color = "black")+
-#           geom_vline(xintercept=Stabilisation_Year, linetype="dashed", color = "black") +
-#           ylim(c(0,1)) +
-#           theme_bw() +
-#           labs(y= "Correlation in expected genetic contribution", x = "Year"))
-# }
-
 #Plot all years together
 start <- 1
 end <- 10
@@ -4713,10 +3280,48 @@ SF1a <- ggplot(data, aes(x=as.numeric(Year), y=Correlation, group=Cohort)) +
   scale_color_viridis_d()  +
   geom_hline(yintercept=0.95, linetype="dashed", color = "black")+
   geom_vline(xintercept=Stabilisation_Year, linetype="dashed", color = "black") +
+  ggtitle("Linthal")+
   theme_bw() +
   ylim(c(0,1)) +
   labs(y= "", x = "Year")
 SF1a
+```
+
+And those excluded
+
+```{r}
+
+1990-mean(na.omit(gen_time_lin$parentaggeatbirth))*8
+
+# Therefore include only the cohorts before 1734
+
+#Plot all years together
+start <- 15
+end <- 44
+
+years.to.plot <- as.numeric(cohort.10y[start:end])
+
+data <- Lin_Correlations[Lin_Correlations$Cohort %in% years.to.plot,]
+
+data$Cohort <- as.factor(paste(data$Cohort,data$Cohort+9,sep = "-"))
+
+#
+# pdf(file="lin_female_correlation_plot_1600s.pdf",width = 12, height = 7.5)
+
+library(gcookbook)  # Load gcookbook for the uspopage data set
+
+SF1c <- ggplot(data, aes(x=as.numeric(Year), y=Correlation, group=Cohort)) +
+  geom_line(aes(color=Cohort))+
+  geom_point(aes(color=Cohort))+
+  scale_color_viridis_d()  +
+  geom_hline(yintercept=0.95, linetype="dashed", color = "black")+
+  geom_vline(xintercept=Stabilisation_Year, linetype="dashed", color = "black") +
+  theme_bw() +
+  ggtitle("Linthal")+ 
+  ylim(c(0,1)) +
+  labs(y= "", x = "Year")
+SF1c
+
 ```
 
 All above threshold of 0.95 by 1927
@@ -4785,97 +3390,13 @@ SF2a <-
   scale_color_viridis_d()  +
   theme_bw() +
   xlim(c(1600,1990)) +
+  ggtitle("Linthal") +
   ylim(c(0,0.6)) +
   labs(y= "", x = "Year")
 SF2a
 ```
 
-
-#### Mean deviation
-
-We can also look at the mean deviation overtime to showing stabilisation 
-
-
-```{r fig.show="hold", out.width="25%"}
-
-tempsubset <- subset(Lin_GeneticContributions_20210812, select = c("ID", "Year", "Relative_Year", "Proportional", "cohort.10y","Cohort"))
-tempsubset$Relative_Year <- as.numeric(gsub("A","",tempsubset$Relative_Year))
-
-Stabilisation <- subset(tempsubset, select = c("ID", "Year","Proportional", "cohort.10y","Cohort"))
-Stabilisation$cohort.10y <- as.factor(Stabilisation$cohort.10y)
-
-Lin_cohort10y_GeneticContributions <-Stabilisation %>% 
-  group_by(cohort.10y,Year) %>% 
-  summarise(Prop.cohort.tot=sum(Proportional))
-
-
-cohort.10y <- as.character(unique(sort(Lin_cohort10y_GeneticContributions$cohort.10y)))
-
-for (i in 1:length(cohort.10y)) {
-  cohort <- as.numeric(cohort.10y[i])
-  x <- Lin_cohort10y_GeneticContributions[Lin_cohort10y_GeneticContributions$cohort.10y==cohort,]
-  x$absolute_deviation <- NA
- for(j in 1:(nrow(x)-1)) {
-    x$absolute_deviation[j+1] <- abs(x$Prop.cohort.tot[j+1]-x$Prop.cohort.tot[j])
- } 
-  assign(paste("Mean_deviation_",cohort[1],sep=""),x)
-
-}
-
-cohorts_data <- as.data.frame(cohort.10y)
-
-for(i in 1:length(cohort.10y)){
-  cohort <- cohort.10y[i]
-  cohorts_data$Mean_deviation_data[i] <- paste("Mean_deviation_",cohort,sep="")
-}
-
-
-#Combine all of the above datasets
-Lin_Mean_deviation <- rbind(mget(cohorts_data$Mean_deviation_data)) #puts all together in a list
-
-Lin_Mean_deviation<- bind_rows(Lin_Mean_deviation) #puts all together in a df
-
-# separately
-for(i in 3:length(cohort.10y)) {
-  cohort <-as.numeric(cohort.10y[i])
-  data <- Lin_Mean_deviation[Lin_Mean_deviation$cohort.10y==cohort,]
-plot <- ggplot(data) +
-  geom_point(aes(x=Year, y=absolute_deviation))+
-  geom_line(aes(x=Year, y=absolute_deviation))+
-  theme_bw() +
-  labs(y= paste(cohort,"cohort absolute deviation",sep = " "), x = "Year")+
-  ylim(c(0,0.03))
-
-print(plot)
-
-}
-
-```
-
-```{r}
-
-#Plot all years together
-start <- 1
-end <- 16
-
-years.to.plot <- as.numeric(cohort.10y[start:end])
-
-data <- Lin_Mean_deviation[Lin_Mean_deviation$cohort.10y %in% years.to.plot,]
-#
-# pdf(file="Lin_female_correlation_plot_1600s.pdf",width = 12, height = 7.5)
-
-ggplot(data, aes(x=as.numeric(Year), y=absolute_deviation, group=as.factor(cohort.10y))) +
-  geom_line(aes(color=as.factor(cohort.10y)))+
-  geom_point(aes(color=as.factor(cohort.10y)))+
-  geom_hline(yintercept=0.95, linetype="dashed", color = "black")+
-  geom_vline(xintercept=Stabilisation_Year, linetype="dashed", color = "black") +
-  theme_bw() +
-  ylim(c(0,0.1))
-  labs(y= "Correlation in expected genetic contribution", x = "Year")
-
-```
-
-#### Proportional expected genetic proportion over time
+Individually per cohort
 
 ```{r fig.show="hold", out.width="25%"}
 
@@ -4919,7 +3440,7 @@ print(plot)
 ```{r}
 
 Elm_GeneticContributions_20210812 <- Elm_GeneticContributions_20210812 %>% dplyr::select(-cohort.5y)
-Lin_GeneticContributions_20210812 <- Lin_GeneticContributions_20210812 %>% dplyr::select(-cohort.10y)
+Lin_GeneticContributions_20210812 <- Lin_GeneticContributions_20210812 %>% dplyr::select(-cohort.5y)
 
 Elm_GeneticContributions_20210812$Parish <- "Elm"
 Lin_GeneticContributions_20210812$Parish <- "Lin"
@@ -4927,32 +3448,44 @@ Lin_GeneticContributions_20210812$Parish <- "Lin"
 Elm_rv_data <- Elm_GeneticContributions_20210812[Elm_GeneticContributions_20210812$Year==1990,]
 Lin_rv_data <- Lin_GeneticContributions_20210812[Lin_GeneticContributions_20210812$Year==1990,]
 
+Elm_rv_data
+Lin_rv_data
+
 rv_data <- rbind(Elm_rv_data,Lin_rv_data)
 
 write.csv(rv_data,"rv-data.csv")
 
 ```
 
-### Figures
+### Supplementary Figures
 
 ```{r}
 
-
 library(ggpubr)
 
+# stabilised
 SF1 <- ggarrange(SF1a,SF1b,
                 labels = c("a", "b"),
                 ncol = 1, nrow = 2)
-
-pdf(file = "sup-figure_01-20220111.pdf",   # The directory you want to save the file in
-    width = 10, # The width of the plot in inches
-    height = 10) # The height of the plot in inches
 
 annotate_figure(SF1,
                 left = text_grob("Correlation",rot=90,color = "black", size = 16),
                 bottom = text_grob("", color = "black", size = 16)
 )
 
+# not stabilised 
+
+# stabilised
+SF2 <- ggarrange(SF1c,SF1d,
+                labels = c("a", "b"),
+                ncol = 1, nrow = 2)
+
+annotate_figure(SF2,
+                left = text_grob("Correlation",rot=90,color = "black", size = 16),
+                bottom = text_grob("", color = "black", size = 16)
+)
+
+
 ```
 
 ```{r}
@@ -4960,18 +3493,341 @@ annotate_figure(SF1,
 
 library(ggpubr)
 
-SF2 <- ggarrange(SF2a,SF2b,
+SF3 <- ggarrange(SF2a,SF2b,
                 labels = c("a", "b"),
                 ncol = 1, nrow = 2)
 
-pdf(file = "sup-figure_02-20220111.pdf",   # The directory you want to save the file in
-    width = 10, # The width of the plot in inches
-    height = 10) # The height of the plot in inches
-
-annotate_figure(SF2,
-                left = text_grob("Total cohort proportional genetic contribution",rot=90,color = "black", size = 16),
+annotate_figure(SF3,
+                left = text_grob("Total cohort IGC",rot=90,color = "black", size = 16),
                 bottom = text_grob("", color = "black", size = 16)
 )
 
 ```
+# 4. Estimating Fitness Proxies
+
+Here I create the fitness proxies (lifespan, lrs, lrssa, and ngo), as well as estimate the proportion of offspring that migrated that would be used as a covariate in the statistical models.
+
+Here, I am going to create fitness proxies for indivduals in the dataset
+
+```{r data_import}
+
+library(tidyverse)
+
+data <- read.delim("data_20220527.txt", sep ="\t")
+
+```
+
+## LRS 
+
+```{r LRS_overall}
+
+data <- dplyr::select(data,-lrs)
+
+### Lifetime reproductive success (total number of children)
+fathers <- unique(data[is.na(data$IDf)==F, c("IDp", "IDf")])
+lrs.fathers <- aggregate(fathers$IDf, by=list(fathers$IDf), FUN=length)
+colnames(lrs.fathers) <- c("IDp", "lrs")
+
+mothers <- unique(data[is.na(data$IDm)==F, c("IDp", "IDm")])
+lrs.mothers <- aggregate(mothers$IDm, by=list(mothers$IDm), FUN=length)
+colnames(lrs.mothers) <- c("IDp", "lrs")
+
+lrs <- rbind(lrs.fathers, lrs.mothers)
+data <- merge(data, lrs, by="IDp", all.x=T, all.y=F)
+
+data$lrs[is.na(data$lrs)==T] <- 0 #those who are NAs make 0
+
+data$lrs[is.na(data$byear)==T | is.na(data$dyear)==T] <- NA  # Only calculate LRS if byear and dyear are known
+
+summary(data$lrs)
+  
+```
+
+## LRSSA
+
+Lifetime reproductive success (total number of children) surviving to adulthood (LRSSA)
+
+```{r LRSSA}
+# Adulthood predicted from Fifth percentle of afr
+afr <- data %>%
+  drop_na(sex) %>% 
+  group_by(sex) %>% 
+ summarise(min.afr=quantile(afr,0.05,na.rm = T))
+
+data <- left_join(data,afr,by="sex")
+
+afr
+
+data$min.afr[is.na(data$sex)] <- as.numeric(quantile(data$afr,0.05,na.rm = T))
+
+# We can either assume that those without recorded death years left or died before adulthood.
+sa.narm <- data[!data$lifespan<data$min.afr|is.na(data$lifespan)==T,]
+
+sa <- data[data$lifespan>data$min.afr|is.na(data$lifespan)==T,]
+### Lifetime reproductive success (total number of children)
+
+fathers <- unique(sa[is.na(sa$IDf)==F, c("IDp", "IDf")])
+lrssa.fathers <- aggregate(fathers$IDf, by=list(fathers$IDf), FUN=length)
+colnames(lrssa.fathers) <- c("IDp", "lrssa")
+
+mothers <- unique(sa[is.na(sa$IDm)==F, c("IDp", "IDm")])
+lrssa.mothers <- aggregate(mothers$IDm, by=list(mothers$IDm), FUN=length)
+colnames(lrssa.mothers) <- c("IDp", "lrssa")
+
+lrssa <- rbind(lrssa.fathers, lrssa.mothers)
+data <- merge(data, lrssa, by="IDp", all.x=T, all.y=F)
+
+data$lrssa[is.na(data$lrssa)==T] <- 0 #those who are NAs make 0
+
+data$lrssa[is.na(data$byear)==T | is.na(data$dyear)==T] <- NA  # Only calculate lrssa if byear and dyear are known
+
+summary(data$lrs)
+hist.default(data$lrs, ylim = c(0,20000),xlim=c(0,24),breaks = 24)
+hist.default(data$lrssa, ylim = c(0,20000),xlim = c(0,24),breaks=24)
+
+```
+
+## The number of grandoffspring
+
+Abreviated to ngo
+
+```{r assigning_grandparents}
+
+# Use pedigree, Remove duplicate individuals, then attach to data full data. Individuals only have one mother and father, so will not make any difference
+data_uni <- dplyr::distinct(data,IDp,.keep_all = T)
+
+# I have done this separately for the maternal and paternal grandparents
+
+# Maternal (mgm = maternal grandmother, mgf = maternal grandfather)
+for(i in seq_along(data_uni$IDp)){
+  crr = data_uni[i,]
+    if(is.na(crr$IDm) == T) {data_uni$IDmgm[i] = NA
+  data_uni$IDmgf[i] = NA}
+  else{
+    mum = data_uni[which(data_uni$IDp == crr$IDm),]
+    if(nrow(mum) == 0){data_uni$IDmgm[i] = NA
+    data_uni$IDmgf[i] = NA}
+    else{
+      if(is.na(mum$IDm) == T){data_uni$IDmgm[i] = NA}
+      else{data_uni$IDmgm[i] = mum$IDm}
+      if(is.na(mum$IDf) == T){data_uni$IDmgf[i] = NA}
+      else{data_uni$IDmgf[i] = mum$IDf}
+    } } }
+
+# paternal (pgm = paternal grandmother, pgf = paternal grandfather)
+# Paternal
+for(i in seq_along(data_uni$IDp)){
+  crr = data_uni[i,]
+  if(is.na(crr$IDf) == T){data_uni$IDpgm[i] = NA
+  data_uni$IDpgf[i] = NA}
+  else{
+    dad = data_uni[which(data_uni$IDp == crr$IDf),]
+    if(nrow(dad) == 0){data_uni$IDpgm[i] = NA
+    data_uni$IDpgf[i] = NA}
+    else{
+      if(is.na(dad$IDm) == T){data_uni$IDpgm[i] = NA}
+      else{data_uni$IDpgm[i] = dad$IDm}
+      if(is.na(dad$IDf) == T){data_uni$IDpgf[i] = NA}
+      else{data_uni$IDpgf[i] = dad$IDf}
+    } } 
+}
+
+data <- left_join(data, data_uni[,c("IDp","IDmgm","IDmgf", "IDpgm","IDpgf")], by="IDp")
+
+```
+
+```{r grandoffspring}
+
+### Ngo, number of grandoffspring
+pgfathers <- unique(data[is.na(data$IDpgf)==F, c("IDp", "IDpgf")])
+ngo.pgfathers <- aggregate(pgfathers$IDpgf, by=list(pgfathers$IDpgf), FUN=length)
+colnames(ngo.pgfathers) <- c("IDp", "p.ngo")
+
+mgfathers <- unique(data[is.na(data$IDf)==F, c("IDp", "IDmgf")])
+ngo.mgfathers <- aggregate(mgfathers$IDmgf, by=list(mgfathers$IDmgf), FUN=length)
+colnames(ngo.mgfathers) <- c("IDp", "m.ngo")
+
+### Ngo, number of grandoffspring
+pgmothers <- unique(data[is.na(data$IDpgm)==F, c("IDp", "IDpgm")])
+ngo.pgmothers <- aggregate(pgmothers$IDpgm, by=list(pgmothers$IDpgm), FUN=length)
+colnames(ngo.pgmothers) <- c("IDp", "p.ngo")
+
+mgmothers <- unique(data[is.na(data$IDf)==F, c("IDp", "IDmgm")])
+ngo.mgmothers <- aggregate(mgmothers$IDmgm, by=list(mgmothers$IDmgm), FUN=length)
+colnames(ngo.mgmothers) <- c("IDp", "m.ngo")
+
+m.ngo <- rbind(ngo.mgfathers, ngo.mgmothers)
+data <- merge(data, m.ngo, by="IDp", all.x=T, all.y=F)
+
+p.ngo <- rbind(ngo.pgfathers, ngo.pgmothers)
+data <- merge(data, p.ngo, by="IDp", all.x=T, all.y=F)
+
+data$p.ngo[is.na(data$p.ngo)==T] <- 0 #those who are NAs make 0
+data$m.ngo[is.na(data$m.ngo)==T] <- 0 #those who are NAs make 0
+
+data$ngo <- data$p.ngo +  data$m.ngo 
+
+data$ngo[is.na(data$ngo)==T] <- 0 #those who are NAs make 0
+
+data$ngo[is.na(data$byear)==T | is.na(data$dyear)==T] <- NA  # Only calculate ngo if byear and dyear are known
+data$p.ngo[is.na(data$byear)==T | is.na(data$dyear)==T] <- NA 
+data$m.ngo[is.na(data$byear)==T | is.na(data$dyear)==T] <- NA 
+
+for(i in seq_along(data)){
+  if(is.na(data$byear[i])==T) {data$fullifhis[i] <- 0}
+  else{if(is.na(data$dyear[i])==T) {data$fullifhis[i] <- 0}
+  else{data$fullifhis[i] <- 1}
+  }
+}
+
+# For offspring's too
+# Paternal
+for(i in seq_along(data$IDp)){
+  ID <- data$IDp[i]
+  ID.data <- data[i,]
+  if(is.na(ID.data$sex) == T){data$fullifhis_kids[i] <-  NA}
+  else{if(ID.data$sex == "M") { #for determining whether to look in father or mother id column
+    offspring_data <- data[!is.na(data$IDf) & data$IDf==ID,]
+    ifelse(sum(offspring_data$fullifhis)<nrow(offspring_data),data$fullifhis_kids[i] <-  0,data$fullifhis_kids[i] <- 1) }
+    else{offspring_data <- data[!is.na(data$IDm) & data$IDm==ID,]
+    ifelse(sum(offspring_data$fullifhis)<nrow(offspring_data),data$fullifhis_kids[i] <-  0,data$fullifhis_kids[i] <- 1) }
+  }
+  print(i)
+}
+
+data$ngo.kk[is.na(data$fullifhis_kids)==F & data$fullifhis_kids==1] <- data$ngo[is.na(data$fullifhis_kids)==F & data$fullifhis_kids==1]  # Only calculate ngo if byear and dyear of kids is known (called ngo.kk)
+
+summary(data$ngo.kk)
+```
+
+## Proportion of non-migrating offspring
+
+Proportion of individuals offspring who have different birth and reg code as parents (did migrate)
+
+```{r}
+
+data_offspring_migration <- data[!is.na(data$IDf),]
+
+
+# determining offspring who had a different sregcode from their father
+for(i in 1:nrow(data_offspring_migration)) {
+  IDp <- data_offspring_migration$IDp[i]
+  IDf <- data_offspring_migration$IDf[i]
+  IDp.sregcode <- data_offspring_migration$sregcode[data_offspring_migration$IDp==IDp]
+  IDf.sregcode <- data_offspring_migration$sregcode[data_offspring_migration$IDp==IDf]
+  if(is.na(IDf)) {data_offspring_migration$migrant.offspring[i] <- 0}
+  else{if(any(is.na(IDp.sregcode))) {data_offspring_migration$migrant.offspring[i] <- 0}
+  else{if(length(IDf.sregcode)==0) {data_offspring_migration$migrant.offspring[i] <- 0}
+  else{if(any(is.na(IDf.sregcode))) {data_offspring_migration$migrant.offspring[i] <- 0}
+  else{if(any(IDp.sregcode!=IDf.sregcode))
+  {data_offspring_migration$migrant.offspring[i] <- 1}
+    else{data_offspring_migration$migrant.offspring[i] <- 0}
+    print(i)
+  }
+  }
+}
+  }
+}
+
+summary(as.factor(data_offspring_migration$migrant.offspring))
+
+data <- left_join(data,data_offspring_migration[,c("IDp","migrant.offspring")],by="IDp")
+
+data$migrant.offspring <- as.numeric(data$migrant.offspring)
+hist.default(data$migrant.offspring)
+# all good
+```
+
+Now I need to turn this into a proportion
+
+```{r}
+
+### migrators
+migrators <- data[data$migrant.offspring==1&is.na(data$migrant.offspring)==F,]
+
+fathers <- unique(migrators[is.na(migrators$IDf)==F, c("IDp", "IDf")])
+lrs.migrators.fathers <- aggregate(fathers$IDf, by=list(fathers$IDf), FUN=length)
+colnames(lrs.migrators.fathers) <- c("IDp", "lrs.migrators")
+
+mothers <- unique(migrators[is.na(migrators$IDm)==F, c("IDp", "IDm")])
+lrs.migrators.mothers <- aggregate(mothers$IDm, by=list(mothers$IDm), FUN=length)
+colnames(lrs.migrators.mothers) <- c("IDp", "lrs.migrators")
+
+lrs.migrators <- rbind(lrs.migrators.fathers, lrs.migrators.mothers)
+data <- merge(data, lrs.migrators, by="IDp", all.x=T, all.y=F)
+
+data$lrs.migrators[is.na(data$byear)==T | is.na(data$dyear)==T] <- NA  
+
+### non_migrators
+non_migrators <- data[!data$migrant.offspring==1|is.na(data$migrant.offspring)==T,]
+
+fathers <- unique(non_migrators[is.na(non_migrators$IDf)==F, c("IDp", "IDf")])
+lrs.non_migrators.fathers <- aggregate(fathers$IDf, by=list(fathers$IDf), FUN=length)
+colnames(lrs.non_migrators.fathers) <- c("IDp", "lrs.non_migrators")
+
+mothers <- unique(non_migrators[is.na(non_migrators$IDm)==F, c("IDp", "IDm")])
+lrs.non_migrators.mothers <- aggregate(mothers$IDm, by=list(mothers$IDm), FUN=length)
+colnames(lrs.non_migrators.mothers) <- c("IDp", "lrs.non_migrators")
+
+lrs.non_migrators <- rbind(lrs.non_migrators.fathers, lrs.non_migrators.mothers)
+data <- merge(data, lrs.non_migrators, by="IDp", all.x=T, all.y=F)
+
+data$lrs.non_migrators[data$lrs==data$lrs.migrators] <- 0 
+
+data$prop.lrs.non.migrators <- data$lrs.non_migrators/data$lrs
+
+data$prop.lrs.non.migrators[is.na(data$prop.lrs.non.migrators)==T] <- 1
+
+data$prop.lrs.non.migrators[is.na(data$byear)==T | is.na(data$dyear)==T] <- NA  
+
+summary(data$prop.lrs.non.migrators)
+hist.default(data$prop.lrs.non.migrators)
+
+```
+
+## Write csv
+
+```{r}
+
+fitness_proxy_data <- data[,c("IDp","lifespan","lrs","lrssa","ngo.kk","prop.lrs.non.migrators")]
+write_csv(fitness_proxy_data,"fitness_proxy_data.csv")
+
+```
+
+### Sample sizes for fitness proxies
+
+```{r}
+
+
+# Data Import
+genetic_contributions <- read.csv("rv-data.csv")
+
+Elm_st_time<- 8*32.13458
+Lin_st_time<-8*32.21
+
+reproductive_values <- genetic_contributions[genetic_contributions$Parish=="Elm"& genetic_contributions$Cohort<(1990-Elm_st_time)|genetic_contributions$Parish=="Lin"& genetic_contributions$Cohort<(1990-Lin_st_time),]
+
+reproductive_values$Sex <- as.factor(reproductive_values$Sex)
+reproductive_values$Parish <- as.factor(reproductive_values$Parish)
+
+fitness_metrics <- read.csv("fitness_proxy_data.csv")
+fitness_metrics %>%  count(is.na(lifespan))
+fitness_metrics %>% count(is.na(lrs))
+fitness_metrics %>%  count(is.na(lrssa))
+fitness_metrics %>%  count(is.na(ngo.kk))
+
+fitness_metrics$ID <- fitness_metrics$IDp
+fitness_metrics <- fitness_metrics[,c("ID","lifespan","lrs","lrssa","ngo.kk","prop.lrs.non.migrators")]
+
+reproductive_values <- left_join(reproductive_values, fitness_metrics, by="ID")
+
+# Sample sizes for 
+reproductive_values %>% filter(!is.na(Proportional)) %>% count(is.na(lifespan))
+reproductive_values %>% filter(!is.na(Proportional)) %>% count(is.na(lrs))
+reproductive_values %>% filter(!is.na(Proportional)) %>% count(is.na(lrssa))
+reproductive_values %>% filter(!is.na(Proportional)) %>% count(is.na(ngo.kk))
+```
+
+### Supplementary figure 4
+
 
