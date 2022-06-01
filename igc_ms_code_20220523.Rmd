@@ -1226,7 +1226,7 @@ data_lin_uni %>%count(migrantstatus)
 ```
 
 
-# 2. Pedigree-based estimation of expected genetic contributions
+# 2. Pedigree-based estimation of IGC
 
 We thank Darren Hunter for providing the initial code for the pedigree-based estimation of expected genetic contributions
 
@@ -3457,7 +3457,7 @@ write.csv(rv_data,"rv-data.csv")
 
 ```
 
-### Supplementary Figures
+### Supplementary Figures 1, 2 and 3
 
 ```{r}
 
@@ -3503,6 +3503,7 @@ annotate_figure(SF3,
 )
 
 ```
+
 # 4. Estimating Fitness Proxies
 
 Here I create the fitness proxies (lifespan, lrs, lrssa, and ngo), as well as estimate the proportion of offspring that migrated that would be used as a covariate in the statistical models.
@@ -3798,17 +3799,16 @@ write_csv(fitness_proxy_data,"fitness_proxy_data.csv")
 
 ```{r}
 
-
 # Data Import
 genetic_contributions <- read.csv("rv-data.csv")
 
 Elm_st_time<- 8*32.13458
 Lin_st_time<-8*32.21
 
-reproductive_values <- genetic_contributions[genetic_contributions$Parish=="Elm"& genetic_contributions$Cohort<(1990-Elm_st_time)|genetic_contributions$Parish=="Lin"& genetic_contributions$Cohort<(1990-Lin_st_time),]
+igc <- genetic_contributions[genetic_contributions$Parish=="Elm"& genetic_contributions$Cohort<(1990-Elm_st_time)|genetic_contributions$Parish=="Lin"& genetic_contributions$Cohort<(1990-Lin_st_time),]
 
-reproductive_values$Sex <- as.factor(reproductive_values$Sex)
-reproductive_values$Parish <- as.factor(reproductive_values$Parish)
+igc$Sex <- as.factor(igc$Sex)
+igc$Parish <- as.factor(igc$Parish)
 
 fitness_metrics <- read.csv("fitness_proxy_data.csv")
 fitness_metrics %>%  count(is.na(lifespan))
@@ -3819,15 +3819,1064 @@ fitness_metrics %>%  count(is.na(ngo.kk))
 fitness_metrics$ID <- fitness_metrics$IDp
 fitness_metrics <- fitness_metrics[,c("ID","lifespan","lrs","lrssa","ngo.kk","prop.lrs.non.migrators")]
 
-reproductive_values <- left_join(reproductive_values, fitness_metrics, by="ID")
+igc <- left_join(igc, fitness_metrics, by="ID")
 
 # Sample sizes for 
-reproductive_values %>% filter(!is.na(Proportional)) %>% count(is.na(lifespan))
-reproductive_values %>% filter(!is.na(Proportional)) %>% count(is.na(lrs))
-reproductive_values %>% filter(!is.na(Proportional)) %>% count(is.na(lrssa))
-reproductive_values %>% filter(!is.na(Proportional)) %>% count(is.na(ngo.kk))
+igc %>% filter(!is.na(Proportional)) %>% count(is.na(lifespan))
+igc %>% filter(!is.na(Proportional)) %>% count(is.na(lrs))
+igc %>% filter(!is.na(Proportional)) %>% count(is.na(lrssa))
+igc %>% filter(!is.na(Proportional)) %>% count(is.na(ngo.kk))
 ```
 
-### Supplementary figure 4
+## Supplementary figure 4
+
+```{r}
+# Data Import
+genetic_contributions <- read.csv("rv-data.csv")
+
+Elm_st_time<- 8*32.13458
+Lin_st_time<-8*32.21
+
+igc <- genetic_contributions[genetic_contributions$Parish=="Elm"& genetic_contributions$Cohort<(1990-Elm_st_time)|genetic_contributions$Parish=="Lin"& genetic_contributions$Cohort<(1990-Lin_st_time),]
+
+# Working out average length of IGCs length estimated
+igc %>% 
+  group_by(Parish) %>% 
+summarise(mean.length = mean(Year-Cohort))
+
+hist.default((igc$Year-igc$Cohort),breaks = seq(250,420,5),main = "",xlab = "Number of years after which IGCs estimated",xlim=c(250,420))
+
+```
+
+
+## Supplementary figure 5
+
+### Model histograms
+
+```{r fig.show="hold", out.width="50%"}
+library(moments)
+library(gridExtra)
+# Data Import
+genetic_contributions <- read.csv("rv-data.csv")
+
+Elm_st_time<- 8*32.13458
+Lin_st_time<-8*32.21
+
+igc <- genetic_contributions[genetic_contributions$Parish=="Elm"& genetic_contributions$Cohort<(1990-Elm_st_time)|genetic_contributions$Parish=="Lin"& genetic_contributions$Cohort<(1990-Lin_st_time),]
+
+igc$Sex <- as.factor(igc$Sex)
+igc$Parish <- as.factor(igc$Parish)
+
+fitness_metrics <- read.csv("fitness_proxy_data.csv")
+
+fitness_metrics$ID <- fitness_metrics$IDp
+fitness_metrics <- fitness_metrics[,c("ID","lrs","prop.lrs.non.migrators")]
+
+igc <- left_join(igc, fitness_metrics, by="ID")
+
+PE <- sum(igc$Proportional==0)/NROW(igc)
+
+rv_ds <- igc %>%
+  filter(!Proportional==0) %>%
+  summarise(N=length(igc$Proportional),`Zero (%)`=PE*100,Mean=round(mean(Proportional),5),Var=var(Proportional),CV=(sd(Proportional)/mean(Proportional)*100), Skew=skewness(Proportional)) %>% 
+  signif(digits = 3)
+rv_ds
+row.names(rv_ds) <- ""
+```
+
+```{r}
+
+SF5.proportional <- igc %>% 
+  filter(!Proportional==0) %>% 
+  ggplot(aes(x=Proportional)) + 
+  geom_histogram(breaks=seq(0, max(igc$Proportional), by=0.00025), 
+                 binwidth = 0.7,
+                 col="black", 
+                 fill="darkgrey") + 
+  labs(x="Proportional Genetic Contributions", y="")+
+  theme_bw() +
+  theme(axis.line = element_line(colour = "black"), 
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        panel.border = element_blank(),
+        panel.background = element_blank()) +
+  theme(axis.text = element_text(colour = "black", size = 8, angle = 0, family = "serif")) +
+  theme(legend.position = "right",legend.justification = c(0.01, 1))+
+  theme(axis.title.x =  element_text(colour = "black", size = 16, face="plain")) +
+  theme(axis.title.y = element_text(colour = "black", size = 16, face="plain", lineheight = 0.5))+ 
+  annotation_custom(tableGrob(rv_ds), xmin=0.002, ymin=150)
+
+```
+
+```{r fig.show="hold", out.width="50%"}
+# Data Import
+genetic_contributions <- read.csv("rv-data.csv")
+
+Elm_st_time<- 8*32.13458
+Lin_st_time<-8*32.21
+
+igc <- genetic_contributions[genetic_contributions$Parish=="Elm"& genetic_contributions$Cohort<(1990-Elm_st_time)|genetic_contributions$Parish=="Lin"& genetic_contributions$Cohort<(1990-Lin_st_time),]
+
+igc$Sex <- as.factor(igc$Sex)
+igc$Parish <- as.factor(igc$Parish)
+
+fitness_metrics <- read.csv("fitness_proxy_data.csv")
+
+fitness_metrics$ID <- fitness_metrics$IDp
+fitness_metrics <- fitness_metrics[,c("ID","lrs","prop.lrs.non.migrators")]
+
+igc <- left_join(igc, fitness_metrics, by="ID")
+
+igc <- igc %>% drop_na(Proportional,lrs)
+
+PE <- sum(igc$lrs==0)/NROW(igc)
+
+rv_ds <- igc %>%
+  filter(!lrs==0) %>%
+  summarise(N=length(igc$lrs),`Zero (%)`=PE*100,Mean=round(mean(lrs),5),Var=var(lrs),CV=(sd(lrs)/mean(lrs)*100), Skew=round(skewness(lrs),1)) %>% 
+  round(1)
+
+row.names(rv_ds) <- ""
+```
+
+```{r}
+
+SF5.lrs <- igc %>% 
+  filter(!lrs==0) %>% 
+  ggplot(aes(x=lrs)) + 
+  geom_histogram(breaks=seq(0, max(igc$lrs), by=1), 
+                 binwidth = 0.7,
+                 col="black", 
+                 fill="darkgrey") + 
+  labs(x="LRS", y="")+
+  theme_bw() +
+  theme(axis.line = element_line(colour = "black"), 
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        panel.border = element_blank(),
+        panel.background = element_blank()) +
+  theme(axis.text = element_text(colour = "black", size = 8, angle = 0, family = "serif")) +
+  theme(legend.position = "right",legend.justification = c(0.01, 1))+
+  theme(axis.title.x =  element_text(colour = "black", size = 16, face="plain")) +
+  theme(axis.title.y = element_text(colour = "black", size = 16, face="plain", lineheight = 0.5))+ 
+  annotation_custom(tableGrob(rv_ds), xmin=7, ymin=150)
+
+```
+
+```{r fig.show="hold", out.width="50%"}
+# Data Import
+genetic_contributions <- read.csv("rv-data.csv")
+
+Elm_st_time<- 8*32.13458
+Lin_st_time<-8*32.21
+
+igc <- genetic_contributions[genetic_contributions$Parish=="Elm"& genetic_contributions$Cohort<(1990-Elm_st_time)|genetic_contributions$Parish=="Lin"& genetic_contributions$Cohort<(1990-Lin_st_time),]
+
+igc$Sex <- as.factor(igc$Sex)
+igc$Parish <- as.factor(igc$Parish)
+
+fitness_metrics <- read.csv("fitness_proxy_data.csv")
+
+fitness_metrics$ID <- fitness_metrics$IDp
+fitness_metrics <- fitness_metrics[,c("ID","lrssa","prop.lrs.non.migrators")]
+
+igc <- left_join(igc, fitness_metrics, by="ID")
+
+igc <- igc %>% drop_na(Proportional,lrssa)
+
+PE <- sum(igc$lrssa==0)/NROW(igc)
+
+rv_ds <- igc %>%
+  filter(!lrssa==0) %>%
+  summarise(N=length(igc$lrssa),`Zero (%)`=PE*100,Mean=round(mean(lrssa),5),Var=var(lrssa),CV=(sd(lrssa)/mean(lrssa)*100), Skew=round(skewness(lrssa),1)) %>% 
+  round(1)
+
+row.names(rv_ds) <- ""
+```
+
+```{r}
+
+SF5.lrssa <- igc %>% 
+  filter(!lrssa==0) %>% 
+  ggplot(aes(x=lrssa)) + 
+  geom_histogram(breaks=seq(0, max(igc$lrssa), by=1), 
+                 binwidth = 0.7,
+                 col="black", 
+                 fill="darkgrey") + 
+  xlab(bquote(''*LRS[SA]*''))  +
+  ylab("")+
+  theme_bw() +
+  theme(axis.line = element_line(colour = "black"), 
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        panel.border = element_blank(),
+        panel.background = element_blank()) +
+  theme(axis.text = element_text(colour = "black", size = 8, angle = 0, family = "serif")) +
+  theme(legend.position = "right",legend.justification = c(0.01, 1))+
+  theme(axis.title.x =  element_text(colour = "black", size = 16, face="plain")) +
+  theme(axis.title.y = element_text(colour = "black", size = 16, face="plain", lineheight = 0.5))+ 
+  annotation_custom(tableGrob(rv_ds), xmin=7, ymin=150)
+
+```
+
+```{r fig.show="hold", out.width="50%"}
+# Data Import
+genetic_contributions <- read.csv("rv-data.csv")
+
+Elm_st_time<- 8*32.13458
+Lin_st_time<-8*32.21
+
+igc <- genetic_contributions[genetic_contributions$Parish=="Elm"& genetic_contributions$Cohort<(1990-Elm_st_time)|genetic_contributions$Parish=="Lin"& genetic_contributions$Cohort<(1990-Lin_st_time),]
+
+igc$Sex <- as.factor(igc$Sex)
+igc$Parish <- as.factor(igc$Parish)
+
+fitness_metrics <- read.csv("fitness_proxy_data.csv")
+
+fitness_metrics$ID <- fitness_metrics$IDp
+fitness_metrics <- fitness_metrics[,c("ID","lifespan","prop.lrs.non.migrators")]
+
+igc <- left_join(igc, fitness_metrics, by="ID")
+
+igc <- igc %>% drop_na(Proportional,lifespan)
+
+PE <- sum(igc$lifespan<adulthood)/NROW(igc)
+
+rv_ds <- igc %>%
+  filter(!lifespan==0) %>%
+  summarise(N=length(igc$lifespan),`Non-SA (%)`=PE*100,Mean=round(mean(lifespan),5),Var=var(lifespan),CV=(sd(lifespan)/mean(lifespan)*100), Skew=round(skewness(lifespan),1)) %>% 
+  round(1)
+
+row.names(rv_ds) <- ""
+```
+
+```{r}
+
+SF5.lifespan <- igc %>%
+  ggplot(aes(x=lifespan)) + 
+  geom_histogram(breaks=seq(0, max(igc$lifespan), by=5), 
+                 binwidth = 0.7,
+                 col="black", 
+                 fill="darkgrey") + 
+  labs(x="Lifespan", y="")+
+  theme_bw() +
+  theme(axis.line = element_line(colour = "black"), 
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        panel.border = element_blank(),
+        panel.background = element_blank()) +
+  theme(axis.text = element_text(colour = "black", size = 8, angle = 0, family = "serif")) +
+  theme(legend.position = "right",legend.justification = c(0.01, 1))+
+  theme(axis.title.x =  element_text(colour = "black", size = 16, face="plain")) +
+  theme(axis.title.y = element_text(colour = "black", size = 16, face="plain", lineheight = 0.5))+ 
+  annotation_custom(tableGrob(rv_ds), xmin=0, ymin=375)
+
+```
+
+
+```{r fig.show="hold", out.width="50%"}
+
+# Data Import
+genetic_contributions <- read.csv("rv-data.csv")
+
+Elm_st_time<- 8*32.13458
+Lin_st_time<-8*32.21
+
+igc <- genetic_contributions[genetic_contributions$Parish=="Elm"& genetic_contributions$Cohort<(1990-Elm_st_time)|genetic_contributions$Parish=="Lin"& genetic_contributions$Cohort<(1990-Lin_st_time),]
+
+igc$Sex <- as.factor(igc$Sex)
+igc$Parish <- as.factor(igc$Parish)
+
+fitness_metrics <- read.csv("fitness_proxy_data.csv")
+
+fitness_metrics$ID <- fitness_metrics$IDp
+fitness_metrics <- fitness_metrics[,c("ID","ngo.kk","prop.lrs.non.migrators")]
+
+igc <- left_join(igc, fitness_metrics, by="ID")
+
+igc <- igc %>% drop_na(Proportional,ngo.kk)
+
+PE <- sum(igc$ngo.kk==0)/NROW(igc)
+
+rv_ds <- igc %>%
+  filter(!ngo.kk==0) %>%
+  summarise(N=length(igc$ngo.kk),`Zero (%)`=PE*100,Mean=round(mean(ngo.kk),5),Var=var(ngo.kk),CV=(sd(ngo.kk)/mean(ngo.kk)*100), Skew=round(skewness(ngo.kk),1)) %>% 
+  round(1)
+
+row.names(rv_ds) <- ""
+```
+
+```{r}
+
+SF5.ngo.kk <- igc %>% 
+  filter(!ngo.kk==0) %>% 
+  ggplot(aes(x=ngo.kk)) + 
+  geom_histogram(breaks=seq(0, max(igc$ngo.kk), by=5), 
+                 binwidth = 0.7,
+                 col="black", 
+                 fill="darkgrey") + 
+  xlab(bquote(''*LRS[SA]*''))  +
+  labs(x="Number of grandoffspring", y="")+
+  theme_bw() +
+  theme(axis.line = element_line(colour = "black"), 
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        panel.border = element_blank(),
+        panel.background = element_blank()) +
+  theme(axis.text = element_text(colour = "black", size = 8, angle = 0, family = "serif")) +
+  theme(legend.position = "right",legend.justification = c(0.01, 1))+
+  theme(axis.title.x =  element_text(colour = "black", size = 16, face="plain")) +
+  theme(axis.title.y = element_text(colour = "black", size = 16, face="plain", lineheight = 0.5))+ 
+  annotation_custom(tableGrob(rv_ds), xmin=7, ymin=150)
+
+```
+
+```{r}
+
+library(ggpubr)
+
+sup_fig_5_abcde <- ggarrange(SF5.proportional,SF5.lifespan,SF5.lrs,SF5.lrssa,SF5.ngo.kk,
+                labels = c("a", "b","c", "d","e"),
+                ncol = 1, nrow = 5)
+
+annotate_figure(sup_fig_5_abcde,
+                left = text_grob("Count",rot=90,color = "black", size = 16))
+
+
+```
+
+
+
+
+# 5. Statistical models
+
+## The power of fitness proxies to predict IGC
+
+Below is the code for running the statistical models examining the power for fitness proxies to predict IGC. They are GLMMs zero-inflated beta models and use the packages brms and rstan. One is run for each of the different fitness proxies (Lifespan, LRS, LRSSA, and the number of grandoffspring (abbreviated to ngo.kk)). There is also a "null model" with no fitness proxy included.
+
+### Packages
+
+```{r}
+library(tidyverse)
+library(dplyr)
+library(brms)
+library(rstan)
+```
+
+### Null model
+
+```{r}
+
+# Data Import
+genetic_contributions <- read.csv("rv-data.csv")
+
+Elm_st_time<- 8*32.13458
+Lin_st_time<-8*32.21
+
+igc <- genetic_contributions[genetic_contributions$Parish=="Elm"& genetic_contributions$Cohort<(1990-Elm_st_time)|genetic_contributions$Parish=="Lin"& genetic_contributions$Cohort<(1990-Lin_st_time),]
+
+# Working out average length of IGCs length estimated
+igc %>% 
+  group_by(Parish) %>% 
+summarise(mean.length = mean(Year-Cohort))
+
+pdf(file = "sup-fig-03-igcs_length.pdf",   # The directory you want to save the file in
+    width = 10, # The width of the plot in inches
+    height = 6) # The height of the plot in inches
+hist.default((igc$Year-igc$Cohort),breaks = seq(250,420,5),main = "",xlab = "Number of years after which IGCs estimated",xlim=c(250,420))
+
+igc$Sex <- as.factor(igc$Sex)
+igc$Parish <- as.factor(igc$Parish)
+
+fitness_metrics <- read.csv("fitness_proxy_data.csv")
+
+fitness_metrics$ID <- fitness_metrics$IDp
+fitness_metrics <- fitness_metrics[,c("ID","lrs","prop.lrs.non.migrators")]
+
+igc <- left_join(igc, fitness_metrics, by="ID")
+
+###Add 10-year cohort
+igc$cohort.10y <- cut(igc$Cohort, c(1574,seq(1595,1735,10)), labels=c(1574,seq(1595,1725,10)))
+
+igc$parish.cohort.10y <- paste(sep=":", igc$Parish,igc$cohort.10y)
+
+d_nonNA <-igc %>%
+  drop_na(lrs) %>%
+  drop_na(Proportional) %>%
+  drop_na(Parish) %>%
+  drop_na(Sex) %>%
+  drop_na(parish.cohort.10y) %>%
+  drop_na(prop.lrs.non.migrators)
+
+d_nonNA <- d_nonNA %>% dplyr::select(lrs,parish.cohort.10y,Parish,Sex,Proportional,prop.lrs.non.migrators)
+
+saveRDS(d_nonNA, file = "data_m.fit.null_20220111.rds")
+
+options(mc.cores = parallel::detectCores())
+rstan_options(auto_write = TRUE)
+
+# Model specification
+m.fit.null_20220111 <-  brm(bf(formula = Proportional ~ Parish*Sex+Parish*prop.lrs.non.migrators+Sex*prop.lrs.non.migrators+(1|parish.cohort.10y),zi~Parish*Sex+Parish*prop.lrs.non.migrators+Sex*prop.lrs.non.migrators+(1|parish.cohort.10y)), family = zero_inflated_beta(),
+                            warmup = 2000, iter= 6000, thin = 10,chains = 4, cores = 4, seed = 666,
+                            file = "m.fit.null_20220111", data = d_nonNA)
+
+saveRDS(m.fit.null_20220111, file = "m.fit.null_20220111.rds")
+
+# Model specification without interactions
+m.fit.null.nint_20220111 <-  brm(bf(formula = Proportional ~ Parish+Sex+prop.lrs.non.migrators+(1|parish.cohort.10y),zi~Parish+Sex+prop.lrs.non.migrators+(1|parish.cohort.10y)), family = zero_inflated_beta(),
+                            warmup = 2000, iter= 6000, thin = 10,chains = 4, cores = 4, seed = 666,
+                            file = "m.fit.null.nint_20220111", data = d_nonNA)
+
+saveRDS(m.fit.null.nint_20220111, file = "m.fit.null.nint_20220111.rds")
+```
+
+### lifespan model
+
+```{r}
+# Data Import
+genetic_contributions <- read.csv("rv-data.csv")
+
+Elm_st_time<- 8*32.13458
+Lin_st_time<-8*32.21
+
+igc <- genetic_contributions[genetic_contributions$Parish=="Elm"& genetic_contributions$Cohort<(1990-Elm_st_time)|genetic_contributions$Parish=="Lin"& genetic_contributions$Cohort<(1990-Lin_st_time),]
+
+igc$Sex <- as.factor(igc$Sex)
+igc$Parish <- as.factor(igc$Parish)
+
+fitness_metrics <- read.csv("fitness_proxy_data.csv")
+
+fitness_metrics$ID <- fitness_metrics$IDp
+fitness_metrics <- fitness_metrics[,c("ID","lifespan","prop.lrs.non.migrators")]
+
+igc <- left_join(igc, fitness_metrics, by="ID")
+
+###Add 10-year cohort
+igc$cohort.10y <- cut(igc$Cohort, c(1574,seq(1595,1735,10)), labels=c(1574,seq(1595,1725,10)))
+
+igc$parish.cohort.10y <- paste(sep=":", igc$Parish,igc$cohort.10y)
+
+d_nonNA <-igc %>%
+  drop_na(lifespan) %>%
+  drop_na(Proportional) %>%
+  drop_na(Parish) %>%
+  drop_na(Sex) %>%
+  drop_na(parish.cohort.10y) %>%
+  drop_na(prop.lrs.non.migrators)
+
+d_nonNA <- d_nonNA %>% dplyr::select(lifespan,parish.cohort.10y,Parish,Sex,Proportional,prop.lrs.non.migrators)
+
+saveRDS(d_nonNA, file = "data_m.fit.lifespan_20220111.rds")
+
+options(mc.cores = parallel::detectCores())
+rstan_options(auto_write = TRUE)
+
+# Model specification
+m.fit.lifespan_20220111 <-  brm(bf(formula = Proportional ~ lifespan+Parish*Sex+Parish*prop.lrs.non.migrators+Sex*prop.lrs.non.migrators+(lifespan|parish.cohort.10y),zi~lifespan+Parish*Sex+Parish*prop.lrs.non.migrators+Sex*prop.lrs.non.migrators+(lifespan|parish.cohort.10y)), family = zero_inflated_beta(),
+                            warmup = 2000, iter= 6000, thin = 10,chains = 4, cores = 4, seed = 666,
+                            file = "m.fit.lifespan_20220111", data = d_nonNA)
+
+saveRDS(m.fit.lifespan_20220111, file = "m.fit.lifespan_20220111.rds")
+
+# Model specification without interactions
+m.fit.lifespan.nint_20220111 <-  brm(bf(formula = Proportional ~ lifespan+Parish+Sex+prop.lrs.non.migrators+(lifespan|parish.cohort.10y),zi~lifespan+Parish+Sex+prop.lrs.non.migrators+(lifespan|parish.cohort.10y)), family = zero_inflated_beta(),
+                                 warmup = 2000, iter= 6000, thin = 10,chains = 4, cores = 4, seed = 666,
+                                 file = "m.fit.lifespan.nint_20220111", data = d_nonNA)
+
+saveRDS(m.fit.lifespan.nint_20220111, file = "m.fit.lifespan.nint_20220111.rds")
+```
+
+### lrs model
+
+```{r}
+
+# Data Import
+genetic_contributions <- read.csv("rv-data.csv")
+
+Elm_st_time<- 8*32.13458
+Lin_st_time<-8*32.21
+
+igc <- genetic_contributions[genetic_contributions$Parish=="Elm"& genetic_contributions$Cohort<(1990-Elm_st_time)|genetic_contributions$Parish=="Lin"& genetic_contributions$Cohort<(1990-Lin_st_time),]
+
+igc$Sex <- as.factor(igc$Sex)
+igc$Parish <- as.factor(igc$Parish)
+
+fitness_metrics <- read.csv("fitness_proxy_data.csv")
+
+fitness_metrics$ID <- fitness_metrics$IDp
+fitness_metrics <- fitness_metrics[,c("ID","lrs","prop.lrs.non.migrators")]
+
+igc <- left_join(igc, fitness_metrics, by="ID")
+
+###Add 10-year cohort
+igc$cohort.10y <- cut(igc$Cohort, c(1574,seq(1595,1735,10)), labels=c(1574,seq(1595,1725,10)))
+
+igc$parish.cohort.10y <- paste(sep=":", igc$Parish,igc$cohort.10y)
+
+d_nonNA <-igc %>%
+  drop_na(lrs) %>%
+  drop_na(Proportional) %>%
+  drop_na(Parish) %>%
+  drop_na(Sex) %>%
+  drop_na(parish.cohort.10y) %>%
+  drop_na(prop.lrs.non.migrators)
+
+d_nonNA <- d_nonNA %>% dplyr::select(lrs,parish.cohort.10y,Parish,Sex,Proportional,prop.lrs.non.migrators)
+
+saveRDS(d_nonNA, file = "data_m.fit.lrs_20220111.rds")
+
+options(mc.cores = parallel::detectCores())
+rstan_options(auto_write = TRUE)
+
+# Model specification
+m.fit.lrs_20220111 <-  brm(bf(formula = Proportional ~ lrs+Parish*Sex+Parish*prop.lrs.non.migrators+Sex*prop.lrs.non.migrators+(lrs|parish.cohort.10y),zi~lrs+Parish*Sex+Parish*prop.lrs.non.migrators+Sex*prop.lrs.non.migrators+(lrs|parish.cohort.10y)), family = zero_inflated_beta(),
+                                warmup = 2000, iter= 6000, thin = 10,chains = 4, cores = 4, seed = 666,
+                                file = "m.fit.lrs_20220111", data = d_nonNA)
+
+saveRDS(m.fit.lrs_20220111, file = "m.fit.lrs_20220111.rds")
+
+# Model specification without interactions
+m.fit.lrs.nint_20220111 <-  brm(bf(formula = Proportional ~ lrs+Parish+Sex+prop.lrs.non.migrators+(lrs|parish.cohort.10y),zi~lrs+Parish+Sex+prop.lrs.non.migrators+(lrs|parish.cohort.10y)), family = zero_inflated_beta(),
+                                     warmup = 2000, iter= 6000, thin = 10,chains = 4, cores = 4, seed = 666,
+                                     file = "m.fit.lrs.nint_20220111", data = d_nonNA)
+
+saveRDS(m.fit.lrs.nint_20220111, file = "m.fit.lrs.nint_20220111.rds")
+
+```
+
+### lrssa model
+
+```{r}
+# Data Import
+genetic_contributions <- read.csv("rv-data.csv")
+
+Elm_st_time<- 8*32.13458
+Lin_st_time<-8*32.21
+
+igc <- genetic_contributions[genetic_contributions$Parish=="Elm"& genetic_contributions$Cohort<(1990-Elm_st_time)|genetic_contributions$Parish=="Lin"& genetic_contributions$Cohort<(1990-Lin_st_time),]
+
+igc$Sex <- as.factor(igc$Sex)
+igc$Parish <- as.factor(igc$Parish)
+
+fitness_metrics <- read.csv("fitness_proxy_data.csv")
+
+fitness_metrics$ID <- fitness_metrics$IDp
+fitness_metrics <- fitness_metrics[,c("ID","lrssa","prop.lrs.non.migrators")]
+
+igc <- left_join(igc, fitness_metrics, by="ID")
+
+###Add 10-year cohort
+igc$cohort.10y <- cut(igc$Cohort, c(1574,seq(1595,1735,10)), labels=c(1574,seq(1595,1725,10)))
+
+igc$parish.cohort.10y <- paste(sep=":", igc$Parish,igc$cohort.10y)
+
+d_nonNA <-igc %>%
+  drop_na(lrssa) %>%
+  drop_na(Proportional) %>%
+  drop_na(Parish) %>%
+  drop_na(Sex) %>%
+  drop_na(parish.cohort.10y) %>%
+  drop_na(prop.lrs.non.migrators)
+
+d_nonNA <- d_nonNA %>% dplyr::select(lrssa,parish.cohort.10y,Parish,Sex,Proportional,prop.lrs.non.migrators)
+
+saveRDS(d_nonNA, file = "data_m.fit.lrssa_20220111.rds")
+
+options(mc.cores = parallel::detectCores())
+rstan_options(auto_write = TRUE)
+
+# Model specification
+m.fit.lrssa_20220111 <-  brm(bf(formula = Proportional ~ lrssa+Parish*Sex+Parish*prop.lrs.non.migrators+Sex*prop.lrs.non.migrators+(lrssa|parish.cohort.10y),zi~lrssa+Parish*Sex+Parish*prop.lrs.non.migrators+Sex*prop.lrs.non.migrators+(lrssa|parish.cohort.10y)), family = zero_inflated_beta(),
+                                warmup = 2000, iter= 6000, thin = 10,chains = 4, cores = 4, seed = 666,
+                                file = "m.fit.lrssa_20220111", data = d_nonNA)
+
+saveRDS(m.fit.lrssa_20220111, file = "m.fit.lrssa_20220111.rds")
+
+# Model specification without interactions
+m.fit.lrssa.nint_20220111 <-  brm(bf(formula = Proportional ~ lrssa+Parish+Sex+prop.lrs.non.migrators+(lrssa|parish.cohort.10y),zi~lrssa+Parish+Sex+prop.lrs.non.migrators+(lrssa|parish.cohort.10y)), family = zero_inflated_beta(),
+                                     warmup = 2000, iter= 6000, thin = 10,chains = 4, cores = 4, seed = 666,
+                                     file = "m.fit.lrssa.nint_20220111", data = d_nonNA)
+
+saveRDS(m.fit.lrssa.nint_20220111, file = "m.fit.lrssa.nint_20220111.rds")
+
+
+```
+
+### The number of grandoffspring model
+
+```{r}
+# Data Import
+genetic_contributions <- read.csv("rv-data.csv")
+
+Elm_st_time<- 8*32.13458
+Lin_st_time<-8*32.21
+
+igc <- genetic_contributions[genetic_contributions$Parish=="Elm"& genetic_contributions$Cohort<(1990-Elm_st_time)|genetic_contributions$Parish=="Lin"& genetic_contributions$Cohort<(1990-Lin_st_time),]
+
+igc$Sex <- as.factor(igc$Sex)
+igc$Parish <- as.factor(igc$Parish)
+
+fitness_metrics <- read.csv("fitness_proxy_data.csv")
+
+fitness_metrics$ID <- fitness_metrics$IDp
+fitness_metrics <- fitness_metrics[,c("ID","ngo.kk","prop.lrs.non.migrators")]
+
+igc <- left_join(igc, fitness_metrics, by="ID")
+
+###Add 10-year cohort
+igc$cohort.10y <- cut(igc$Cohort, c(1574,seq(1595,1735,10)), labels=c(1574,seq(1595,1725,10)))
+
+igc$parish.cohort.10y <- paste(sep=":", igc$Parish,igc$cohort.10y)
+
+d_nonNA <-igc %>%
+  drop_na(ngo.kk) %>%
+  drop_na(Proportional) %>%
+  drop_na(Parish) %>%
+  drop_na(Sex) %>%
+  drop_na(parish.cohort.10y) %>%
+  drop_na(prop.lrs.non.migrators)
+
+d_nonNA <- d_nonNA %>% dplyr::select(ngo.kk,parish.cohort.10y,Parish,Sex,Proportional,prop.lrs.non.migrators)
+
+saveRDS(d_nonNA, file = "data_m.fit.ngo.kk_20220111.rds")
+
+options(mc.cores = parallel::detectCores())
+rstan_options(auto_write = TRUE)
+
+# Model specification
+m.fit.ngo.kk_20220111 <-  brm(bf(formula = Proportional ~ ngo.kk+Parish*Sex+Parish*prop.lrs.non.migrators+Sex*prop.lrs.non.migrators+(ngo.kk|parish.cohort.10y),zi~ngo.kk+Parish*Sex+Parish*prop.lrs.non.migrators+Sex*prop.lrs.non.migrators+(ngo.kk|parish.cohort.10y)), family = zero_inflated_beta(),
+                                warmup = 2000, iter= 6000, thin = 10,chains = 4, cores = 4, seed = 666,
+                                file = "m.fit.ngo.kk_20220111", data = d_nonNA)
+
+saveRDS(m.fit.ngo.kk_20220111, file = "m.fit.ngo.kk_20220111.rds")
+
+# Model specification without interactions
+m.fit.ngo.kk.nint_20220111 <-  brm(bf(formula = Proportional ~ ngo.kk+Parish+Sex+prop.lrs.non.migrators+(ngo.kk|parish.cohort.10y),zi~ngo.kk+Parish+Sex+prop.lrs.non.migrators+(ngo.kk|parish.cohort.10y)), family = zero_inflated_beta(),
+                                     warmup = 2000, iter= 6000, thin = 10,chains = 4, cores = 4, seed = 666,
+                                     file = "m.fit.ngo.kk.nint_20220111", data = d_nonNA)
+
+saveRDS(m.fit.ngo.kk.nint_20220111, file = "m.fit.ngo.kk.nint_20220111.rds")
+```
+
+## Is LRS an unbiased estimate of IGC
+
+Below are the models run examing the bias in LRS, the relationship between mean IGC of offspring and an individuals LRS
+
+```{r}
+#### Offspring genetic contributions model ####
+
+# # Packages
+library(tidyverse)
+library(dplyr)
+library(brms)
+library(rstan)
+# 
+# 
+# Data Import
+genetic_contributions <- read.csv("rv-data.csv")
+
+# Adding parental information
+parental_IDs <- read.delim(file = "data_GL20210824.txt")
+parental_IDs$ID <- parental_IDs$IDp
+parental_IDs <- parental_IDs[,c("ID","IDm","IDf")]
+
+genetic_contributions <- left_join(genetic_contributions,parental_IDs,by="ID")
+
+# Calculating mean offspring values
+mean_offspring_rvs_IDf <- genetic_contributions %>% 
+  group_by(IDf) %>% 
+  summarise(mean_offspring_gc = mean(Proportional)) %>% 
+  rename(ID=IDf)
+
+mean_offspring_rvs_IDm <- genetic_contributions %>% 
+  group_by(IDm) %>% 
+  summarise(mean_offspring_gc = mean(Proportional)) %>% 
+  rename(ID=IDm)
+
+mean_offspring_rvs <- rbind(mean_offspring_rvs_IDf,mean_offspring_rvs_IDm)
+mean_offspring_rvs$mean_offspring_gc <- mean_offspring_rvs$mean_offspring_gc+.000000001
+
+genetic_contributions <- left_join(genetic_contributions,mean_offspring_rvs,by="ID")
+
+hist.default(genetic_contributions$mean_offspring_gc[genetic_contributions$mean_offspring_gc>0])
+
+Elm_st_time<- 8*32.13458
+Lin_st_time<-8*32.21
+
+genetic_contributions_g8 <- genetic_contributions[genetic_contributions$Parish=="Elm"& genetic_contributions$Cohort<(1990-Elm_st_time)|genetic_contributions$Parish=="Lin"& genetic_contributions$Cohort<(1990-Lin_st_time),]
+
+
+genetic_contributions_g8$Sex <- as.factor(genetic_contributions_g8$Sex)
+genetic_contributions_g8$Parish <- as.factor(genetic_contributions_g8$Parish)
+
+fitness_metrics <- read.csv("fitness_proxy_data.csv")
+
+fitness_metrics$ID <- fitness_metrics$IDp
+fitness_metrics <- fitness_metrics[,c("ID","lrs","lrssa","lifespan","prop.lrs.non.migrators")]
+
+genetic_contributions_g8 <- left_join(genetic_contributions_g8, fitness_metrics, by="ID")
+
+## Add 10-year cohort
+genetic_contributions_g8$cohort.10y <- cut(genetic_contributions_g8$Cohort, c(1574,seq(1595,1735,10)), labels=c(1574,seq(1595,1725,10)))
+
+genetic_contributions_g8$parish.cohort.10y <- paste(sep=":", genetic_contributions_g8$Parish,genetic_contributions_g8$cohort.10y)
+
+write.csv(genetic_contributions_g8,"genetic_contributions_g8.csv")
+
+d_nonNA <-genetic_contributions_g8 %>% 
+  drop_na(lrs) %>% 
+  drop_na(mean_offspring_gc) %>% 
+  drop_na(Parish) %>% 
+  drop_na(Sex) %>% 
+  drop_na(lifespan) %>%
+  drop_na(parish.cohort.10y) %>% 
+  drop_na(prop.lrs.non.migrators) 
+
+d_nonNA <- d_nonNA %>% dplyr::select(lrs,lifespan,parish.cohort.10y,Parish,Sex,mean_offspring_gc,prop.lrs.non.migrators)
+
+d_nonNA <- na.omit(d_nonNA)
+
+saveRDS(d_nonNA, file = "data_m.offgc_20220131.rds")
+
+options(mc.cores = parallel::detectCores())
+rstan_options(auto_write = TRUE)
+
+m.offgc.lrs.lifespan_20220131 <-  brm(bf(formula = mean_offspring_gc ~ lrs+lifespan+Parish*Sex+Parish*prop.lrs.non.migrators+Sex*prop.lrs.non.migrators+(lrs|parish.cohort.10y)),family = Beta,
+                          warmup = 2000, iter= 6000, thin = 11,chains = 4, cores = 4, seed = 666,
+                          file = "m.offgc.lrs.lifespan_20220131", data = d_nonNA)
+
+saveRDS(m.offgc.lrs.lifespan_20220131, file = "m.offgc.lrs.lifespan_20220131.rds")
+
+m.offgc.lrs.lifespan.nint_20220131 <-  brm(bf(formula = mean_offspring_gc ~ lrs+lifespan+Parish*Sex+prop.lrs.non.migrators+(lrs|parish.cohort.10y)),family = Beta,
+                                    warmup = 2000, iter= 6000, thin = 11,chains = 4, cores = 4, seed = 666,
+                                    file = "m.offgc.lrs.lifespan.nint_20220131", data = d_nonNA)
+
+saveRDS(m.offgc.lrs.lifespan.nint_20220131, file = "m.offgc.lrs.lifespan.nint_20220131.rds")
+```
+
+# Results and Figures
+
+## The power of fitness proxies to predict IGC 
+
+### Import models
+
+```{r}
+
+library(brms)
+library(bayesplot)
+library(bayestestR)
+
+library(tidybayes)
+library(tidyverse)
+library(sjstats)
+
+library(ggplot2) #for figures
+library(ggpubr)
+
+```
+
+```{r}
+
+m.fit.null_20220111 <- readRDS(file = "statistical_models_20220113/m.fit.null_20220111.rds")
+m.fit.null.nint_20220111 <- readRDS(file = "statistical_models_20220113/m.fit.null.nint_20220111.rds")
+
+m.fit.lifespan_20220111 <- readRDS(file = "statistical_models_20220113/m.fit.lifespan_20220111.rds")
+m.fit.lifespan.nint_20220111 <- readRDS(file = "statistical_models_20220113/m.fit.lifespan.nint_20220111.rds")
+
+m.fit.lrs_20220111 <- readRDS(file = "statistical_models_20220113/m.fit.lrs_20220111.rds")
+m.fit.lrs.nint_20220111 <- readRDS(file = "statistical_models_20220113/m.fit.lrs.nint_20220111.rds")
+
+m.fit.lrssa_20220111 <- readRDS(file = "statistical_models_20220113/m.fit.lrssa_20220111.rds")
+m.fit.lrssa.nint_20220111 <- readRDS(file = "statistical_models_20220113/m.fit.lrssa.nint_20220111.rds")
+
+m.fit.ngo.kk_20220111 <- readRDS(file = "statistical_models_20220113/m.fit.ngo.kk_20220111.rds")
+m.fit.ngo.kk.nint_20220111 <- readRDS(file = "statistical_models_20220113/m.fit.ngo.kk.nint_20220111.rds")
+
+```
+
+### Null model 
+
+#### Data checks
+
+```{r}
+summary(m.fit.null_20220111)$formula
+summary(m.fit.null.nint_20220111)$formula
+
+prior_summary(m.fit.null_20220111)
+prior_summary(m.fit.null.nint_20220111)
+
+## Convergrence of models (check Rhat)
+tidy_stan(m.fit.null_20220111)
+tidy_stan(m.fit.null.nint_20220111)
+
+pp_check(m.fit.null_20220111,nsamples = 50)
+pp_check(m.fit.null.nint_20220111,nsamples = 50)
+# the pp_check function was used to check that simulated data from the model matched the original data well
+```
+#### Results
+
+```{r}
+# Bayesian R-squared
+bayes_R2(m.fit.null_20220111)
+bayes_R2(m.fit.null.nint_20220111)
+
+# Visual representation of results (I removed the intercepts from this display becuase it is not especially interesting)
+mcmc_areas(m.fit.null_20220111,pars = parnames(m.fit.null_20220111)[3:16], prob = .95)
+mcmc_areas(m.fit.null.nint_20220111,pars = parnames(m.fit.null.nint_20220111)[3:10], prob = .95)
+```
+### Lifespan model 
+
+#### Data checks
+
+```{r}
+summary(m.fit.lifespan_20220111)$formula
+summary(m.fit.lifespan.nint_20220111)$formula
+
+prior_summary(m.fit.lifespan_20220111)
+prior_summary(m.fit.lifespan.nint_20220111)
+
+## Convergrence of models
+tidy_stan(m.fit.lifespan_20220111)
+tidy_stan(m.fit.lifespan.nint_20220111)
+
+pp_check(m.fit.lifespan_20220111,nsamples = 50)
+pp_check(m.fit.lifespan.nint_20220111,nsamples = 50)
+
+```
+
+#### Results
+
+```{r}
+bayes_R2(m.fit.lifespan_20220111)
+bayes_R2(m.fit.lifespan.nint_20220111)
+
+mcmc_areas(m.fit.lifespan_20220111,pars = parnames(m.fit.lifespan_20220111)[3:16], prob = .95)
+mcmc_areas(m.fit.lifespan.nint_20220111,pars = parnames(m.fit.lifespan.nint_20220111)[3:10], prob = .95)
+```
+
+### lrs model 
+
+#### Data checks
+
+```{r}
+summary(m.fit.lrs_20220111)$formula
+summary(m.fit.lrs.nint_20220111)$formula
+
+prior_summary(m.fit.lrs_20220111)
+prior_summary(m.fit.lrs.nint_20220111)
+
+## Convergrence of models
+tidy_stan(m.fit.lrs_20220111)
+tidy_stan(m.fit.lrs.nint_20220111)
+
+pp_check(m.fit.lrs_20220111,nsamples = 50)
+pp_check(m.fit.lrs.nint_20220111,nsamples = 50)
+
+```
+
+#### Results
+
+```{r}
+bayes_R2(m.fit.lrs_20220111)
+bayes_R2(m.fit.lrs.nint_20220111)
+
+mcmc_areas(m.fit.lrs_20220111,pars = parnames(m.fit.lrs_20220111)[3:16], prob = .95)
+mcmc_areas(m.fit.lrs.nint_20220111,pars = parnames(m.fit.lrs.nint_20220111)[3:10], prob = .95)
+```
+
+### lrssa model 
+
+#### Data checks
+
+```{r}
+summary(m.fit.lrssa_20220111)$formula
+summary(m.fit.lrssa.nint_20220111)$formula
+
+prior_summary(m.fit.lrssa_20220111)
+prior_summary(m.fit.lrssa.nint_20220111)
+
+## Convergrence of models
+tidy_stan(m.fit.lrssa_20220111)
+tidy_stan(m.fit.lrssa.nint_20220111)
+
+pp_check(m.fit.lrssa_20220111,nsamples = 50)
+pp_check(m.fit.lrssa.nint_20220111,nsamples = 50)
+
+```
+
+#### Results
+
+```{r}
+bayes_R2(m.fit.lrssa_20220111)
+bayes_R2(m.fit.lrssa.nint_20220111)
+
+mcmc_areas(m.fit.lrssa_20220111,pars = parnames(m.fit.lrssa_20220111)[3:16], prob = .95)
+mcmc_areas(m.fit.lrssa.nint_20220111,pars = parnames(m.fit.lrssa.nint_20220111)[3:10], prob = .95)
+```
+
+### ngo.kk model 
+
+#### Data checks
+
+```{r}
+summary(m.fit.ngo.kk_20220111)$formula
+summary(m.fit.ngo.kk.nint_20220111)$formula
+
+prior_summary(m.fit.ngo.kk_20220111)
+prior_summary(m.fit.ngo.kk.nint_20220111)
+
+## Convergrence of models
+tidy_stan(m.fit.ngo.kk_20220111)
+tidy_stan(m.fit.ngo.kk.nint_20220111)
+
+pp_check(m.fit.ngo.kk_20220111,nsamples = 50)
+pp_check(m.fit.ngo.kk.nint_20220111,nsamples = 50)
+
+```
+
+#### Results
+
+```{r}
+bayes_R2(m.fit.ngo.kk_20220111)
+bayes_R2(m.fit.ngo.kk.nint_20220111)
+
+mcmc_areas(m.fit.ngo.kk_20220111,pars = parnames(m.fit.ngo.kk_20220111)[3:16], prob = .95)
+mcmc_areas(m.fit.ngo.kk.nint_20220111,pars = parnames(m.fit.ngo.kk.nint_20220111)[3:10], prob = .95)
+```
+
+### Summary tables and figures
+
+```{r}
+#posterior estimate 
+posterior_summary <- rbind(posterior_summary(m.fit.lifespan_20220111)[1:20,c(1,3,4)],posterior_summary(m.fit.lrs_20220111)[1:20,c(1,3,4)],posterior_summary(m.fit.lrssa_20220111)[1:20,c(1,3,4)],posterior_summary(m.fit.ngo.kk_20220111)[1:20,c(1,3,4)])
+posterior_summary <- as.data.frame(round(posterior_summary,3))
+posterior_summary$`95%.CIs` <- paste(posterior_summary$Q2.5,posterior_summary$Q97.5,sep=" - ")
+posterior_summary$`95%.CIs` <- paste(paste("[",posterior_summary$`95%.CIs`,sep=""),"]",sep="")
+posterior_summary <- posterior_summary[,c(1,4)]
+
+# 
+r2_summary <- rbind(bayes_R2(m.fit.lifespan_20220111),bayes_R2(m.fit.lrs_20220111),bayes_R2(m.fit.lrssa_20220111),bayes_R2(m.fit.ngo.kk_20220111))
+r2_summary <- as.data.frame(round(r2_summary,3))
+r2_summary$`95%.CIs` <- paste(r2_summary$Q2.5,r2_summary$Q97.5,sep=" - ")
+r2_summary <- r2_summary[,c(1,5)]
+r2_summary$`95%.CIs` <- paste(paste("[",r2_summary$`95%.CIs`,sep=""),"]",sep="")
+
+write.csv(rbind(posterior_summary,r2_summary),"results_table1_20220111.csv")
+```
+
+```{r}
+#posterior estimate 
+posterior_summary <- rbind(posterior_summary(m.fit.lifespan.nint_20220111)[1:14,c(1,3,4)],posterior_summary(m.fit.lrs.nint_20220111)[1:14,c(1,3,4)],posterior_summary(m.fit.lrssa.nint_20220111)[1:14,c(1,3,4)],posterior_summary(m.fit.ngo.kk.nint_20220111)[1:14,c(1,3,4)])
+posterior_summary <- as.data.frame(round(posterior_summary,3))
+posterior_summary$`95%.CIs` <- paste(posterior_summary$Q2.5,posterior_summary$Q97.5,sep=" - ")
+posterior_summary$`95%.CIs` <- paste(paste("[",posterior_summary$`95%.CIs`,sep=""),"]",sep="")
+posterior_summary <- posterior_summary[,c(1,4)]
+
+# 
+r2_summary <- rbind(bayes_R2(m.fit.lifespan.nint_20220111),bayes_R2(m.fit.lrs.nint_20220111),bayes_R2(m.fit.lrssa.nint_20220111),bayes_R2(m.fit.ngo.kk.nint_20220111))
+r2_summary <- as.data.frame(round(r2_summary,3))
+r2_summary$`95%.CIs` <- paste(r2_summary$Q2.5,r2_summary$Q97.5,sep=" - ")
+r2_summary <- r2_summary[,c(1,5)]
+r2_summary$`95%.CIs` <- paste(paste("[",r2_summary$`95%.CIs`,sep=""),"]",sep="")
+
+write.csv(rbind(posterior_summary,r2_summary),"results_table1.nint_20220111.csv")
+```
+
+#### Probability of direction
+
+```{r}
+
+pd <- rbind(p_direction(m.fit.lifespan_20220111,effects = c("fixed")),p_direction(m.fit.lrs_20220111,effects = c("fixed")),
+p_direction(m.fit.lrssa_20220111,effects = c("fixed")),p_direction(m.fit.ngo.kk_20220111,effects = c("fixed")))
+write.csv(pd[,c(1,2)],"pd_results_table1_20220111.csv")
+
+pd <- rbind(p_direction(m.fit.lifespan_20220111,effects = c("fixed"),component = "zi"),p_direction(m.fit.lrs_20220111,effects = c("fixed"),component = "zi"),
+p_direction(m.fit.lrssa_20220111,effects = c("fixed"),component = "zi"),p_direction(m.fit.ngo.kk_20220111,effects = c("fixed"),component = "zi"))
+write.csv(pd[,c(1,2)],"pd_zi_results_table1_20220111.csv")
+
+```
+
+```{r}
+
+pd <- rbind(p_direction(m.fit.lifespan.nint_20220111,effects = c("fixed")),p_direction(m.fit.lrs.nint_20220111,effects = c("fixed")),
+p_direction(m.fit.lrssa.nint_20220111,effects = c("fixed")),p_direction(m.fit.ngo.kk.nint_20220111,effects = c("fixed")))
+write.csv(pd[,c(1,2)],"pd_results_table1_20220111.csv")
+
+pd <- rbind(p_direction(m.fit.lifespan.nint_20220111,effects = c("fixed"),component = "zi"),p_direction(m.fit.lrs.nint_20220111,effects = c("fixed"),component = "zi"),
+p_direction(m.fit.lrssa.nint_20220111,effects = c("fixed"),component = "zi"),p_direction(m.fit.ngo.kk.nint_20220111,effects = c("fixed"),component = "zi"))
+write.csv(pd[,c(1,2)],"pd_zi_results_table1.nint_20220111.csv")
+
+```
+
+### Random effects
+
+```{r}
+mcmc_areas(m.fit.lifespan_20220111,pars = parnames(m.fit.lifespan_20220111)[24:53], prob = .95)
+mcmc_areas(m.fit.lifespan_20220111,pars = parnames(m.fit.lifespan_20220111)[54:(54+29)], prob = .95)
+mcmc_areas(m.fit.lifespan_20220111,pars = parnames(m.fit.lifespan_20220111)[84:(84+29)], prob = .95)
+mcmc_areas(m.fit.lifespan_20220111,pars = parnames(m.fit.lifespan_20220111)[114:(114+29)], prob = .95)
+# lin 1695
+```
+
+```{r}
+mcmc_areas(m.fit.lifespan.nint_20220111,pars = parnames(m.fit.lifespan.nint_20220111)[(24-6):(53-6)], prob = .95)
+mcmc_areas(m.fit.lifespan.nint_20220111,pars = parnames(m.fit.lifespan.nint_20220111)[(54-6):(54+29-6)], prob = .95)
+mcmc_areas(m.fit.lifespan.nint_20220111,pars = parnames(m.fit.lifespan.nint_20220111)[(84-6):(84+29-6)], prob = .95)
+mcmc_areas(m.fit.lifespan.nint_20220111,pars = parnames(m.fit.lifespan.nint_20220111)[(114-6):(114+29-6)], prob = .95)
+# lin 1695
+```
+
+
+
+## Table 2
+
+```{r}
+# Data Import
+genetic_contributions <- read.csv("rv-data.csv")
+
+Elm_st_time<- 8*32.13458
+Lin_st_time<-8*32.21
+
+igc <- genetic_contributions[genetic_contributions$Parish=="Elm"& genetic_contributions$Cohort<(1990-Elm_st_time)|genetic_contributions$Parish=="Lin"& genetic_contributions$Cohort<(1990-Lin_st_time),]
+
+igc$Sex <- as.factor(igc$Sex)
+igc$Parish <- as.factor(igc$Parish)
+
+fitness_metrics <- read.csv("fitness_proxy_data.csv")
+
+fitness_metrics$ID <- fitness_metrics$IDp
+fitness_metrics <- fitness_metrics[,c("ID","ngo.kk","lifespan","lrs","lrssa","ngo.kk","prop.lrs.non.migrators")]
+
+igc <- left_join(igc, fitness_metrics, by="ID")
+
+## Add 10-year cohort
+igc$cohort.10y <- cut(igc$Cohort, c(1574,seq(1595,1735,10)), labels=c(1574,seq(1595,1725,10)))
+
+igc$parish.cohort.10y <- paste(sep=":", igc$Parish,igc$cohort.10y)
+
+d_nonNA <-igc %>%
+  drop_na(lifespan) %>%
+  drop_na(lrs) %>% 
+  drop_na(lrssa) %>% 
+  drop_na(ngo.kk) %>% 
+  drop_na(Proportional) %>%
+  drop_na(Parish) %>%
+  drop_na(Sex) %>%
+  drop_na(parish.cohort.10y) %>%
+  drop_na(prop.lrs.non.migrators)
+
+d_nonNA <- d_nonNA %>% dplyr::select(lifespan,lrs,lrssa,ngo.kk,parish.cohort.10y,Parish,Sex,Proportional,prop.lrs.non.migrators)
+
+library("Hmisc")
+rcorr(as.matrix(d_nonNA[,1:4]))
+
+```
+
+## Is LRS an unbiased estimate of IGC?
+
+
+
+## Model histograms
+
 
 
