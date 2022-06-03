@@ -1,0 +1,10 @@
+"","Parameter","pd"
+"1","b_Intercept",1
+"3","b_lrs",1
+"2","b_lifespan",1
+"4","b_ParishLin",0.918269230769231
+"8","b_SexMale",0.990384615384615
+"7","b_prop.lrs.non.migrators",0.996565934065934
+"6","b_ParishLin:SexMale",0.997252747252747
+"5","b_ParishLin:prop.lrs.non.migrators",0.719093406593407
+"9","b_SexMale:prop.lrs.non.migrators",0.877747252747253
